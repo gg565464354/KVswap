@@ -219,13 +219,16 @@ def eager_attention_forward(
 
     return attn_output, attn_weights
 
+import os  # 需要引入 os 模块来检查文件
 
 class Qwen3Attention(nn.Module):
-    """Multi-headed attention from 'Attention Is All You Need' paper"""
+    """
+    Multi-headed attention from 'Attention Is All You Need' paper
+    Modified for KVSwap: Sparse Access & Compressed K Cache
+    """
 
     def __init__(self, config: Qwen3Config, layer_idx: int):
         super().__init__()
-        self.layer_type = config.layer_types[layer_idx] if hasattr(config, "layer_types") else None
         self.config = config
         self.layer_idx = layer_idx
         self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
@@ -246,9 +249,106 @@ class Qwen3Attention(nn.Module):
         self.o_proj = nn.Linear(
             config.num_attention_heads * self.head_dim, config.hidden_size, bias=config.attention_bias
         )
-        self.q_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)  # unlike olmo, only on the head dim!
-        self.k_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)  # thus post q_norm does not need reshape
-        self.sliding_window = config.sliding_window if self.layer_type == "sliding_attention" else None
+        self.q_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
+        self.k_norm = Qwen3RMSNorm(self.head_dim, eps=config.rms_norm_eps)
+        self.sliding_window = config.sliding_window if self.config.layer_types[layer_idx] == "sliding_attention" else None
+
+        # ================= KVSwap: 初始化部分 =================
+        self.kvswap_enabled = False
+        self.projection_matrix = None  # A Matrix: (H_k * d, r)
+        self.compressed_k_cache = None # Lr K Cache: (Batch, Seq_Len, r)
+        
+        # 加载投影矩阵 (路径需要根据你第一步保存的位置调整)
+        proj_path = f"./kvswap_projections/projection_layer_{layer_idx}.pt"
+        if os.path.exists(proj_path):
+            try:
+                # 加载并转为对应的数据类型和设备（将在 forward 中移动到 device）
+                A = torch.load(proj_path, map_location="cpu") 
+                self.register_buffer("projection_matrix", A.to(dtype=torch.float16)) # 注册为 buffer 方便管理
+                self.kvswap_enabled = True
+                
+                # KVSwap 超参数 (建议后续改为从 config 读取)
+                self.kv_group_size = 4    # G: 组大小
+                self.kv_top_k_groups = 100 # M: 选中多少组 (需要根据显存预算调整)
+                
+                # 预处理 A 用于 Query 投影: Reshape [H_k * d, r] -> [H_k, d, r]
+                # 这样方便后续做 Q_h * A_g(h)
+                self.num_kv_heads = config.num_key_value_heads
+                self.target_rank = A.shape[1]
+                
+            except Exception as e:
+                print(f"Layer {layer_idx}: Failed to load KVSwap matrix: {e}")
+        # ====================================================
+
+    def _kvswap_predict_indices(self, query_states, key_states_new):
+        """
+        KVSwap 核心逻辑：
+        1. 更新压缩缓存
+        2. 计算近似分数
+        3. 返回 Top-K 组的索引
+        """
+        bsz, q_len, _, _ = query_states.shape
+        
+        # 1. 更新压缩 K Cache (Runtime Compression)
+        # key_states_new: [B, H_k, 1, d]
+        # Flatten: [B, 1, H_k * d]
+        k_flat = key_states_new.transpose(1, 2).reshape(bsz, 1, -1)
+        # Project: [B, 1, H_k * d] @ [H_k * d, r] -> [B, 1, r]
+        k_lr_new = torch.matmul(k_flat, self.projection_matrix)
+        
+        # 拼接到历史压缩缓存中
+        if self.compressed_k_cache is None:
+            self.compressed_k_cache = k_lr_new
+        else:
+            self.compressed_k_cache = torch.cat([self.compressed_k_cache, k_lr_new], dim=1)
+            
+        # 2. 计算近似 Attention Score (Approximate Attention)
+        # 这里的 compressed_k_cache 形状: [B, Total_Seq, r]
+        
+        # 为了计算 Q_lr = Q @ A，我们需要调整 A 的形状以匹配 Head
+        # A: [H_k * d, r] -> [H_k, d, r]
+        A_reshaped = self.projection_matrix.view(self.num_kv_heads, self.head_dim, self.target_rank)
+        
+        # 处理 GQA (Grouped Query Attention): 将 A 扩展到 Query Heads 的数量
+        # [H_k, d, r] -> [H_q, d, r]
+        A_expanded = repeat_kv(A_reshaped.unsqueeze(0), self.num_key_value_groups).squeeze(0)
+        
+        # Q: [B, H_q, 1, d] -> permute -> [B, 1, H_q, d]
+        # 计算 Q_lr: [B, 1, H_q, r]
+        # 公式: Q_h * A_g(h)
+        # 这里的实现利用广播机制: [B, 1, H_q, d] @ [H_q, d, r] -> [B, 1, H_q, r]
+        q_permuted = query_states.transpose(1, 2) 
+        q_lr = torch.matmul(q_permuted, A_expanded)
+        
+        # 计算近似分数: Q_lr @ K_lr.T
+        # Q_lr: [B, 1, H_q, r]
+        # K_lr: [B, Total_Seq, r] -> [B, r, Total_Seq] (Global shared K_lr)
+        # Result: [B, 1, H_q, Total_Seq]
+        approx_scores = torch.matmul(q_lr, self.compressed_k_cache.transpose(1, 2))
+        
+        # 3. 聚合与选择 (Aggregation & Selection)
+        # Sum over heads: [B, 1, Total_Seq]
+        agg_scores = approx_scores.sum(dim=2)
+        
+        # Group Max Pooling
+        # Pad 到能被 group_size 整除
+        seq_len = agg_scores.shape[-1]
+        pad_len = (self.kv_group_size - (seq_len % self.kv_group_size)) % self.kv_group_size
+        if pad_len > 0:
+            agg_scores = torch.nn.functional.pad(agg_scores, (0, pad_len), value=-float('inf'))
+            
+        num_groups = agg_scores.shape[-1] // self.kv_group_size
+        # Reshape: [B, 1, Num_Groups, Group_Size]
+        grouped_scores = agg_scores.view(bsz, 1, num_groups, self.kv_group_size)
+        # Max over group: [B, 1, Num_Groups]
+        group_max_scores = grouped_scores.max(dim=-1).values
+        
+        # Top-K Selection
+        # 选出最重要的 M 个组
+        k = min(self.kv_top_k_groups, num_groups)
+        topk_indices = torch.topk(group_max_scores, k, dim=-1).indices # [B, 1, k]
+        
+        return topk_indices, seq_len # 返回原始序列长度以便处理越界
 
     def forward(
         self,
@@ -269,26 +369,97 @@ class Qwen3Attention(nn.Module):
         cos, sin = position_embeddings
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
 
+        # 这里的 past_key_values (HuggingFace Cache) 模拟我们的“磁盘”
         if past_key_values is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
-        attention_interface: Callable = eager_attention_forward
-        if self.config._attn_implementation != "eager":
-            attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+        # ================= KVSwap 逻辑接入点 =================
+        # 仅在 Decoding 阶段 (seq_len=1) 且 KVSwap 启用时触发
+        is_decoding = query_states.shape[2] == 1 and past_key_values.get_seq_length(self.layer_idx) > 1
+        
+        if self.kvswap_enabled and is_decoding:
+            # 1. 预测关键 KV 组
+            # 注意：这里的 key_states 已经是 Update 后的全量数据，
+            # 为了模拟，我们取最后一个 token (即当前生成步的 New KV)
+            new_k = key_states[:, :, -1:, :] 
+            
+            top_group_indices, total_seq_len = self._kvswap_predict_indices(query_states, new_k)
+            
+            # 2. 模拟从磁盘(Full Cache)加载选中的块
+            # top_group_indices: [B, 1, k] -> 需要展开成 Token Indices
+            # 例如 group_idx=2, size=4 -> indices [8, 9, 10, 11]
+            bsz, _, k = top_group_indices.shape
+            
+            # 生成组内偏移量: [0, 1, 2, 3]
+            offsets = torch.arange(self.kv_group_size, device=query_states.device)
+            # [B, 1, k, 1] + [Group_Size] -> [B, 1, k, Group_Size]
+            token_indices = (top_group_indices.unsqueeze(-1) * self.kv_group_size) + offsets
+            token_indices = token_indices.view(bsz, -1) # Flatten indices: [B, k * Group_Size]
+            
+            # 过滤掉 Padding 导致的越界 Index (处理最后一组)
+            token_indices = token_indices.clamp(max=total_seq_len - 1)
+            
+            # 加上当前最新的 token (Rolling Buffer 简化版：总是保留最新 token)
+            # 实际论文中还有一个 Rolling Window，这里简化为强制包含最新 Token
+            current_token_idx = torch.tensor([[total_seq_len - 1]], device=query_states.device).expand(bsz, 1)
+            token_indices = torch.cat([token_indices, current_token_idx], dim=-1)
+            
+            # 3. Gather (稀疏读取)
+            # 从 Full Cache (past_key_values) 中提取
+            # key_states shape: [B, H_k, Total_Seq, D]
+            # token_indices shape: [B, Selected_Seq] -> 需要扩展维度以 gather
+            
+            # [B, Selected_Seq] -> [B, H_k, Selected_Seq, D]
+            gather_indices = token_indices.view(bsz, 1, -1, 1).expand(-1, self.num_kv_heads, -1, self.head_dim)
+            
+            sparse_key_states = torch.gather(key_states, 2, gather_indices)
+            sparse_value_states = torch.gather(value_states, 2, gather_indices)
+            
+            # 4. 执行稀疏 Attention
+            # 注意：使用稀疏 KV 时，Attention Mask 需要置为 None 或重新计算，
+            # 因为位置已经是 gather 出来的非连续位置。
+            # 这里简单起见，使用 SDPA 的 causal=False (因为这是 Decoding，且我们手动选了 key)
+            
+            # Q: [B, H_q, 1, D]
+            # K_sparse: [B, H_k, Selected_Seq, D] -> Repeat to H_q
+            sparse_key_states = repeat_kv(sparse_key_states, self.num_key_value_groups)
+            sparse_value_states = repeat_kv(sparse_value_states, self.num_key_value_groups)
+            
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                query_states,
+                sparse_key_states,
+                sparse_value_states,
+                attn_mask=None, # 稀疏机制下通常不需要 mask，除非为了屏蔽 pad
+                dropout_p=0.0 if not self.training else self.attention_dropout,
+                is_causal=False 
+            )
+            
+            attn_weights = None # SDPA 不返回 weights
+            
+        else:
+            # ================= 原始逻辑 (Prefill 或 KVSwap 未启用) =================
+            if self.kvswap_enabled and query_states.shape[2] > 1:
+                # 如果是 Prefill 阶段，需要初始化/更新 compressed_k_cache
+                # 这里为了简单，暂不处理 Prefill 的压缩初始化（假设从 Decoding 第一步开始积累）
+                pass 
 
-        attn_output, attn_weights = attention_interface(
-            self,
-            query_states,
-            key_states,
-            value_states,
-            attention_mask,
-            dropout=0.0 if not self.training else self.attention_dropout,
-            scaling=self.scaling,
-            sliding_window=self.sliding_window,  # diff with Llama
-            **kwargs,
-        )
+            attention_interface: Callable = eager_attention_forward
+            if self.config._attn_implementation != "eager":
+                attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+
+            attn_output, attn_weights = attention_interface(
+                self,
+                query_states,
+                key_states,
+                value_states,
+                attention_mask,
+                dropout=0.0 if not self.training else self.attention_dropout,
+                scaling=self.scaling,
+                sliding_window=self.sliding_window,
+                **kwargs,
+            )
+        # =======================================================================
 
         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
         attn_output = self.o_proj(attn_output)
