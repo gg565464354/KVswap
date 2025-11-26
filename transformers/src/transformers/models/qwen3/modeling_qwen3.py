@@ -394,6 +394,8 @@ class Qwen3Attention(nn.Module):
             # 生成组内偏移量: [0, 1, 2, 3]
             offsets = torch.arange(self.kv_group_size, device=query_states.device)
             # [B, 1, k, 1] + [Group_Size] -> [B, 1, k, Group_Size]
+            #[每个组的起始位置] + [组内的相对偏移量] = [该组内所有 Token 的具体位置]。
+            #把**“我们要读第 2 块和第 5 块”这个指令，翻译成“我们要读第 8, 9, 10, 11, 20, 21, 22, 23 号数据”**
             token_indices = (top_group_indices.unsqueeze(-1) * self.kv_group_size) + offsets
             token_indices = token_indices.view(bsz, -1) # Flatten indices: [B, k * Group_Size]
             
