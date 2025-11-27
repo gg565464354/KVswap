@@ -255,11 +255,11 @@ class Qwen3Attention(nn.Module):
 
         # ================= KVSwap: 初始化部分 =================
         self.kvswap_enabled = False
-        self.projection_matrix = None  # A Matrix: (H_k * d, r)
+        # self.projection_matrix = None  # A Matrix: (H_k * d, r)
         self.compressed_k_cache = None # Lr K Cache: (Batch, Seq_Len, r)
         
         # 加载投影矩阵 (路径需要根据你第一步保存的位置调整)
-        proj_path = f"./kvswap_projections/projection_layer_{layer_idx}.pt"
+        proj_path = f"/root/autodl-tmp/kvswap_projections/projection_layer_{layer_idx}.pt"
         if os.path.exists(proj_path):
             try:
                 # 加载并转为对应的数据类型和设备（将在 forward 中移动到 device）
@@ -279,7 +279,6 @@ class Qwen3Attention(nn.Module):
             except Exception as e:
                 print(f"Layer {layer_idx}: Failed to load KVSwap matrix: {e}")
         # ====================================================
-
     def _kvswap_predict_indices(self, query_states, key_states_new):
         """
         KVSwap 核心逻辑：
@@ -318,7 +317,7 @@ class Qwen3Attention(nn.Module):
         # 公式: Q_h * A_g(h)
         # 这里的实现利用广播机制: [B, 1, H_q, d] @ [H_q, d, r] -> [B, 1, H_q, r]
         q_permuted = query_states.transpose(1, 2) 
-        q_lr = torch.matmul(q_permuted, A_expanded)
+        q_lr = torch.einsum("bshd,hdr->bshr", q_permuted, A_expanded)
         
         # 计算近似分数: Q_lr @ K_lr.T
         # Q_lr: [B, 1, H_q, r]
@@ -377,14 +376,47 @@ class Qwen3Attention(nn.Module):
         # ================= KVSwap 逻辑接入点 =================
         # 仅在 Decoding 阶段 (seq_len=1) 且 KVSwap 启用时触发
         is_decoding = query_states.shape[2] == 1 and past_key_values.get_seq_length(self.layer_idx) > 1
-        
+        if self.kvswap_enabled and is_decoding and self.compressed_k_cache is None:
+            # 从 Cache 获取全量 Key: [B, H_k, Total_Seq, D]
+            # 注意：不同 transformers 版本获取 cache 方式不同，这里假设是 DynamicCache 或 Tuple
+            try:
+                
+                # 排除掉当前的最后一个 token (因为它会在 _kvswap_predict_indices 里被加进去)
+                # 或者更简单的做法：我们把历史所有的都压缩进去，传给 predict 的 new_k 设为空
+                # 这里为了配合原有逻辑，我们只压缩 [:-1] 的部分
+                full_k = past_key_values.layers[self.layer_idx].keys
+                history_k = full_k[:, :, :-1, :]
+                
+                if history_k.shape[2] > 0:
+                    b, h, s, d = history_k.shape
+                    k_flat = history_k.transpose(1, 2).reshape(b, s, -1) # [B, S, H*d]
+                    self.compressed_k_cache = torch.matmul(k_flat, self.projection_matrix) # [B, S, r]
+            except Exception as e:
+                print(f"Warning: Lazy init of compressed cache failed: {e}")
         if self.kvswap_enabled and is_decoding:
             # 1. 预测关键 KV 组
             # 注意：这里的 key_states 已经是 Update 后的全量数据，
             # 为了模拟，我们取最后一个 token (即当前生成步的 New KV)
-            new_k = key_states[:, :, -1:, :] 
+            try:
+                # 优先使用 DynamicCache 的标准访问方式
+                if hasattr(past_key_values, "layers"):
+                    full_k_source = past_key_values.layers[self.layer_idx].keys
+                    full_v_source = past_key_values.layers[self.layer_idx].values
+                elif hasattr(past_key_values, "key_cache"):
+                    full_k_source = past_key_values.key_cache[self.layer_idx]
+                    full_v_source = past_key_values.value_cache[self.layer_idx]
+                else:
+                    # Fallback 到 forward 的输入 (风险较高，但在旧版 transformers 可能有效)
+                    full_k_source = key_states
+                    full_v_source = value_states
+            except:
+                full_k_source = key_states
+                full_v_source = value_states
+            real_seq_len = full_k_source.shape[2]
+            real_max_idx = real_seq_len - 1
+            new_k = full_k_source[:, :, -1:, :] 
             
-            top_group_indices, total_seq_len = self._kvswap_predict_indices(query_states, new_k)
+            top_group_indices, _ = self._kvswap_predict_indices(query_states, new_k)
             
             # 2. 模拟从磁盘(Full Cache)加载选中的块
             # top_group_indices: [B, 1, k] -> 需要展开成 Token Indices
@@ -401,32 +433,44 @@ class Qwen3Attention(nn.Module):
             
             # 过滤掉 Padding 导致的越界 Index (处理最后一组)
             # 如果pad的索引超过了最大合法的索引，就把它强制修改为最大合法索引。
-            token_indices = token_indices.clamp(max=total_seq_len - 1)
+            token_indices = token_indices.clamp(max=real_max_idx)
             
             # 加上当前最新的 token (Rolling Buffer 简化版：总是保留最新 token,不管预测器选了谁，永远把最后一个 Token 加上。防止丢掉最新的历史信息)
             # 实际论文中还有一个 Rolling Window，这里简化为强制包含最新 Token
-            current_token_idx = torch.tensor([[total_seq_len - 1]], device=query_states.device).expand(bsz, 1)
+            current_token_idx = torch.tensor([[real_max_idx]], device=query_states.device).expand(bsz, 1)
             token_indices = torch.cat([token_indices, current_token_idx], dim=-1)
-            
-            # 3. Gather (稀疏读取)
+            if bsz == 1:
+                token_indices = torch.unique(token_indices).unsqueeze(0) # [1, Unique_Seq]
+            else:
+                # 简单 Batch 处理：这里只是为了跑通测试，实际部署需要更高效的写法
+                cleaned_list = []
+                max_len = 0
+                for b_i in range(bsz):
+                    u = torch.unique(token_indices[b_i])
+                    cleaned_list.append(u)
+                    max_len = max(max_len, u.shape[0])
+                
+                new_indices = torch.zeros(bsz, max_len, dtype=torch.long, device=query_states.device)
+                for b_i, u in enumerate(cleaned_list):
+                    length = u.shape[0]
+                    new_indices[b_i, :length] = u
+                    # 对于不足的部分，填充为最后一个有效索引 (这在 Attention 中是安全的，因为是重复读取)
+                    # 或者填充为 0，但要配合 mask。这里为了简单，重复最后一个 token。
+                    if length < max_len:
+                         new_indices[b_i, length:] = u[-1]
+                token_indices = new_indices            # 3. Gather (稀疏读取)
             # 从 Full Cache (past_key_values) 中提取
             # key_states shape: [B, H_k, Total_Seq, D]
             # token_indices shape: [B, Selected_Seq] -> 需要扩展维度以 gather
             
             # [B, Selected_Seq] -> [B, H_k, Selected_Seq, D]
-            gather_indices = token_indices.view(bsz, 1, -1, 1).expand(-1, self.num_kv_heads, -1, self.head_dim)
+            selected_seq_len = token_indices.shape[1]
+            gather_indices = token_indices.view(bsz, 1, selected_seq_len, 1).expand(-1, self.num_kv_heads, -1, self.head_dim)
             
-            # 在第2维度seq_len上 gather
-            sparse_key_states = torch.gather(key_states, 2, gather_indices)
-            sparse_value_states = torch.gather(value_states, 2, gather_indices)
+            sparse_key_states = torch.gather(full_k_source, 2, gather_indices)
+            sparse_value_states = torch.gather(full_v_source, 2, gather_indices)
             
-            # 4. 执行稀疏 Attention
-            # 注意：使用稀疏 KV 时，Attention Mask 需要置为 None 或重新计算，
-            # 因为位置已经是 gather 出来的非连续位置。
-            # 这里简单起见，使用 SDPA 的 causal=False (因为这是 Decoding，且我们手动选了 key)
-            
-            # Q: [B, H_q, 1, D]
-            # K_sparse: [B, H_k, Selected_Seq, D] -> Repeat to H_q
+            # 6. Attn
             sparse_key_states = repeat_kv(sparse_key_states, self.num_key_value_groups)
             sparse_value_states = repeat_kv(sparse_value_states, self.num_key_value_groups)
             
@@ -434,12 +478,11 @@ class Qwen3Attention(nn.Module):
                 query_states,
                 sparse_key_states,
                 sparse_value_states,
-                attn_mask=None, # 稀疏机制下通常不需要 mask，除非为了屏蔽 pad
+                attn_mask=None,
                 dropout_p=0.0 if not self.training else self.attention_dropout,
                 is_causal=False 
             )
-            
-            attn_weights = None # SDPA 不返回 weights
+            attn_weights = None
             
         else:
             # ================= 原始逻辑 (Prefill 或 KVSwap 未启用) =================
