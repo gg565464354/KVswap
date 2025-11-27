@@ -400,9 +400,10 @@ class Qwen3Attention(nn.Module):
             token_indices = token_indices.view(bsz, -1) # Flatten indices: [B, k * Group_Size]
             
             # 过滤掉 Padding 导致的越界 Index (处理最后一组)
+            # 如果pad的索引超过了最大合法的索引，就把它强制修改为最大合法索引。
             token_indices = token_indices.clamp(max=total_seq_len - 1)
             
-            # 加上当前最新的 token (Rolling Buffer 简化版：总是保留最新 token)
+            # 加上当前最新的 token (Rolling Buffer 简化版：总是保留最新 token,不管预测器选了谁，永远把最后一个 Token 加上。防止丢掉最新的历史信息)
             # 实际论文中还有一个 Rolling Window，这里简化为强制包含最新 Token
             current_token_idx = torch.tensor([[total_seq_len - 1]], device=query_states.device).expand(bsz, 1)
             token_indices = torch.cat([token_indices, current_token_idx], dim=-1)
@@ -415,6 +416,7 @@ class Qwen3Attention(nn.Module):
             # [B, Selected_Seq] -> [B, H_k, Selected_Seq, D]
             gather_indices = token_indices.view(bsz, 1, -1, 1).expand(-1, self.num_kv_heads, -1, self.head_dim)
             
+            # 在第2维度seq_len上 gather
             sparse_key_states = torch.gather(key_states, 2, gather_indices)
             sparse_value_states = torch.gather(value_states, 2, gather_indices)
             
