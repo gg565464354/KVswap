@@ -1,0 +1,8 @@
+{
+    "llama-3-8b-1048k": "gradientai/Llama-3-8B-Instruct-Gradient-1048k",
+    "llama-3.1-8b": "meta-llama/Llama-3.1-8B-Instruct",
+    "qwen2.5-7b": "Qwen/Qwen2.5-7B-Instruct",
+    "qwen2.5-72b": "Qwen/Qwen2.5-72B-Instruct",
+    "Phi-4-mini-instruct": "microsoft/Phi-4-mini-instruct",
+    "Qwen3-8B": "/root/autodl-tmp/Qwen3-8B/"
+}

@@ -8,7 +8,7 @@ from datasets import load_dataset
 # ================= 配置部分 =================
 MODEL_ID = "/root/autodl-tmp/Qwen3-8B/"  # 替换为你的模型路径
 OUTPUT_DIR = "/root/autodl-tmp/kvswap_projections"                # 矩阵保存路径
-CALIBRATION_DATASET = "allenai/c4"                 # 论文指定数据集 
+CALIBRATION_DATASET = "/root/KVswap/data/qasper.jsonl"                 # 论文指定数据集 
 NUM_BATCHES = 20                                   # 论文指定校准 Batch 数 
 SEQ_LEN = 2048                                     # 校准序列长度，根据显存调整
 COMPRESSION_SIGMA = 32                             # 论文中的最大压缩比 
@@ -19,28 +19,44 @@ def get_calibration_data(tokenizer, num_batches, seq_len):
     加载 C4 数据集并预处理 
     """
     print(f"Loading {num_batches} batches from {CALIBRATION_DATASET}...")
-    dataset = load_dataset(CALIBRATION_DATASET, "en", split="train", streaming=True)
+    dataset = load_dataset(
+        "json", 
+        data_files=CALIBRATION_DATASET,  # <--- 必须显式指定参数名
+        split="train", 
+        streaming=False
+    )
     
     batch_data = []
     iterator = iter(dataset)
     
     pbar = tqdm(total=num_batches, desc="Tokenizing")
-    while len(batch_data) < num_batches:
-        try:
-            sample = next(iterator)
-            # 简单的截断处理，保证每个 sample 都是 seq_len 长度
-            tokenized = tokenizer(
-                sample["text"], 
-                truncation=True, 
-                # max_length=seq_len, 
-                return_tensors="pt"
-            )
-            # 过滤掉太短的文本
-            if tokenized.input_ids.shape[1] >= seq_len // 2:
-                batch_data.append(tokenized.input_ids[:, :seq_len])
-                pbar.update(1)
-        except StopIteration:
+    for i, sample in enumerate(dataset):
+        if len(batch_data) >= num_batches:
             break
+            
+        # 打印第一条数据看看长什么样 (Debug用)
+        if i == 0:
+            print(f"First sample keys: {sample.keys()}")
+        
+        # 尝试获取文本
+        # QMSum/Qasper 用 "context"，C4 用 "text"
+        text = sample.get("context", sample.get("text", ""))
+        
+        if not text or len(text.strip()) == 0:
+            # 如果没取到文本，尝试把所有 values 拼起来 (兜底)
+            text = " ".join([str(v) for v in sample.values()])
+            
+        # 截断与 Tokenize
+        tokenized = tokenizer(
+            text, 
+            truncation=True, 
+            max_length=seq_len, 
+            return_tensors="pt"
+        )
+        
+        if tokenized.input_ids.shape[1] > 0:
+            batch_data.append(tokenized.input_ids)
+            pbar.update(1)
             
     return batch_data
 
