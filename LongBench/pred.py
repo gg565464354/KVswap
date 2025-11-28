@@ -24,6 +24,63 @@ dataset2prompt = json.load(open("config/dataset2prompt.json", "r"))
 dataset2maxlen = json.load(open("config/dataset2maxlen.json", "r"))
 os.environ["ENABLE_METRICS"] = "0"
 os.environ["ENABLE_MONITOR"] = "0"
+
+def reset_kv_state(llm_wrapper):
+    """
+    强制清空模型中所有 KVSwap 层的压缩缓存状态。
+    假设 llm_wrapper.model 是 HuggingFace 的模型实例。
+    """
+    # 尝试获取底层的 HF 模型
+    model = getattr(llm_wrapper, "model", None)
+    if model is None:
+        return # 如果找不到模型实例，跳过
+
+    if hasattr(model, "model") and hasattr(model.model, "layers"):
+        layers = model.model.layers
+    elif hasattr(model, "layers"):
+        layers = model.layers
+    else:
+        return
+
+    for layer in layers:
+        if hasattr(layer.self_attn, "compressed_k_cache"):
+            layer.self_attn.compressed_k_cache = None
+
+def configure_kvswap(llm_wrapper, args):
+    """
+    根据参数配置每一层的 KVSwap 开关和超参数
+    """
+    model = getattr(llm_wrapper, "model", None)
+    if model is None: return
+
+    # 获取层列表 (兼容 Qwen/Llama 结构)
+    if hasattr(model, "model") and hasattr(model.model, "layers"):
+        layers = model.model.layers
+    elif hasattr(model, "layers"):
+        layers = model.layers
+    else:
+        return
+
+    for layer in layers:
+        # 仅当该层成功加载了矩阵 (projection_matrix is not None) 时才开启
+        has_matrix = hasattr(layer.self_attn, "projection_matrix") and layer.self_attn.projection_matrix is not None
+        
+        if args.method == "kvswap" and has_matrix:
+            layer.self_attn.kvswap_enabled = True
+            # 设置超参数
+            layer.self_attn.kv_group_size = args.kv_group_size
+            # 如果没指定 top_k，根据 MG=400 自动计算
+            if args.kv_top_k_groups == -1:
+                layer.self_attn.kv_top_k_groups = 400 // args.kv_group_size
+            else:
+                layer.self_attn.kv_top_k_groups = args.kv_top_k_groups
+            print("Configured KVSwap: Group Size =", layer.self_attn.kv_group_size, 
+                  ", Top K Groups =", layer.self_attn.kv_top_k_groups)
+        else:
+            # 如果不是 kvswap 方法，或者这一层没矩阵，强制关闭
+            if hasattr(layer.self_attn, "kvswap_enabled"):
+                layer.self_attn.kvswap_enabled = False
+
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     # parser.add_argument("--attn_type", type=str, default="Full_Flash_Attn",                                                     \
@@ -45,8 +102,10 @@ def parse_args(args=None):
     parser.add_argument("--cache_dir", type=str, default="/root/.cache/datasets/THUDM___long_bench",
                         help="HF datasets 缓存路径")
     parser.add_argument("--datalen", type=int, default=128*1024, help="The length of the context.")
-    parser.add_argument("--method", type=str, default="full",choices=["full", "kvdrive","shadow","quest"],                          \
+    parser.add_argument("--method", type=str, default="full",choices=["full", "kvdrive","shadow","quest", "kvswap"],                          \
                         help="Attention method")
+    parser.add_argument("--kv_group_size", type=int, default=4, help="KVSwap Group Size (G)")
+    parser.add_argument("--kv_top_k_groups", type=int, default=100, help="KVSwap Top K Groups (M). Set -1 to auto-calc from MG=400")
     parser.add_argument("--sparse_budget", type=int, default=2048)
     parser.add_argument("--rank", type=int, default=160)
     parser.add_argument("--chunk_size", type=int, default=8)
@@ -57,7 +116,10 @@ def parse_args(args=None):
 
 
 def get_pred(llm, data, max_new_tokens, prompt_format, model_name, out_path, args):
+    configure_kvswap(llm, args)
+    print(f"Method: {args.method}, KVSwap Configured.")
     for json_obj in tqdm(data):
+        reset_kv_state(llm)
         prompt = prompt_format.format(**json_obj)
 
         inputs = llm.tokenizer([prompt], return_tensors="pt", padding=True)
@@ -177,21 +239,25 @@ if __name__ == '__main__':
     if not os.path.exists("results/pred_e"):
         os.makedirs("results/pred_e")
 
+    LOCAL_DATA_ROOT = "/root/KVswap/data"
     for dataset in datasets:
+        file_name = f"{dataset}_e.jsonl" if args.e else f"{dataset}.jsonl"
+        local_file_path = os.path.join(LOCAL_DATA_ROOT, file_name)
+        print(f"Loading local dataset: {local_file_path}")
+
+        # 2. 加载本地数据
+        # 注意：本地加载 JSONL 时，默认 split 通常是 "train"，即使它是测试数据
+        data = load_dataset("json", data_files=local_file_path, split="train")
+
+        # 3. 设置结果保存路径 (保持原有逻辑)
         if args.e:
-            data = load_dataset('THUDM/LongBench', f"{dataset}_e", split='test',cache_dir=args.cache_dir)
-
             prefix = f"results/pred_e/{model_name}/{attn_mode}"
-            if not os.path.exists(prefix):
-                os.makedirs(prefix)
-            out_path = f"{prefix}/{dataset}.jsonl"
         else:
-            data = load_dataset('THUDM/LongBench', dataset, split='test', cache_dir=args.cache_dir)
-
             prefix = f"results/pred/{model_name}/{attn_mode}"
-            if not os.path.exists(prefix):
-                os.makedirs(prefix)
-            out_path = f"{prefix}/{dataset}.jsonl"
+
+        if not os.path.exists(prefix):
+            os.makedirs(prefix)
+        out_path = f"{prefix}/{dataset}.jsonl"
 
         prompt_format = dataset2prompt[dataset]
         max_new_tokens = dataset2maxlen[dataset]
