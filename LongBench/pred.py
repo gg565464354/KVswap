@@ -213,10 +213,13 @@ if __name__ == '__main__':
     attn_mode = args.method
     num_examples = args.num_examples
 
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.append(current_dir)
+
+    from models import choose_model_class
     LLM = choose_model_class(model_name)
-    llm = LLM(model_name=model_path, batch_size=batch_size, device='cuda:0', max_length=datalen+2048,
-              attn_mode=attn_mode, dtype=dtype, sparse_budget=sparse_budget, rank=rank, chunk_size=chunk_size,
-              minference=minference, only_gpu=only_gpu)
+    llm = LLM(model_name=model_path, device='cuda:0')
     llm.tokenizer.pad_token = llm.tokenizer.eos_token
     llm.tokenizer.padding_side = "left"
     # llm = load_model(model_path, max_length, dtype, device)
