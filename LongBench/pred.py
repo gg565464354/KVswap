@@ -74,8 +74,8 @@ def configure_kvswap(llm_wrapper, args):
                 layer.self_attn.kv_top_k_groups = 400 // args.kv_group_size
             else:
                 layer.self_attn.kv_top_k_groups = args.kv_top_k_groups
-            print("Configured KVSwap: Group Size =", layer.self_attn.kv_group_size, 
-                  ", Top K Groups =", layer.self_attn.kv_top_k_groups)
+            # print("Configured KVSwap: Group Size =", layer.self_attn.kv_group_size, 
+            #       ", Top K Groups =", layer.self_attn.kv_top_k_groups)
         else:
             # 如果不是 kvswap 方法，或者这一层没矩阵，强制关闭
             if hasattr(layer.self_attn, "kvswap_enabled"):

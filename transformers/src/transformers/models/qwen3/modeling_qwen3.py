@@ -292,6 +292,12 @@ class Qwen3Attention(nn.Module):
         # key_states_new: [B, H_k, 1, d]
         # Flatten: [B, 1, H_k * d]
         k_flat = key_states_new.transpose(1, 2).reshape(bsz, 1, -1)
+        if self.projection_matrix.dtype != k_flat.dtype:
+            self.projection_matrix = self.projection_matrix.to(k_flat.dtype)
+            
+        # 同时也确保设备一致 (防止 device mismatch)
+        if self.projection_matrix.device != k_flat.device:
+            self.projection_matrix = self.projection_matrix.to(k_flat.device)
         # Project: [B, 1, H_k * d] @ [H_k * d, r] -> [B, 1, r]
         k_lr_new = torch.matmul(k_flat, self.projection_matrix)
         
@@ -489,7 +495,27 @@ class Qwen3Attention(nn.Module):
             if self.kvswap_enabled and query_states.shape[2] > 1:
                 # 如果是 Prefill 阶段，需要初始化/更新 compressed_k_cache
                 # 这里为了简单，暂不处理 Prefill 的压缩初始化（假设从 Decoding 第一步开始积累）
-                pass 
+                bsz, _, seq_len, _ = key_states.shape
+                
+                # 2. 定义 k_flat (这是你之前缺失的！)
+                # [B, H_k, S, D] -> [B, S, H_k, D] -> [B, S, H_k * D]
+                k_flat = key_states.transpose(1, 2).reshape(bsz, seq_len, -1)
+                
+                if self.projection_matrix is not None:
+                    # 🔥🔥🔥【核心修复】数据类型动态对齐 (BF16 vs FP16) 🔥🔥🔥
+                    # 必须确保投影矩阵的 dtype 和 输入的 Key 一致
+                    if self.projection_matrix.dtype != k_flat.dtype:
+                        self.projection_matrix = self.projection_matrix.to(k_flat.dtype)
+                    
+                    # 确保设备一致
+                    if self.projection_matrix.device != k_flat.device:
+                        self.projection_matrix = self.projection_matrix.to(k_flat.device)
+                        
+                    # 3. 全量压缩 Prompt
+                    # [B, S, Dim] @ [Dim, Rank] -> [B, S, Rank]
+                    self.compressed_k_cache = torch.matmul(k_flat, self.projection_matrix)
+                else:
+                    self.compressed_k_cache = None 
 
             attention_interface: Callable = eager_attention_forward
             if self.config._attn_implementation != "eager":

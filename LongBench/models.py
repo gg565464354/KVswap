@@ -22,15 +22,20 @@ class GenericHFModel:
             model_name,
             trust_remote_code=True,
             torch_dtype=torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16,
-            device_map=device,
+            # device_map=device,
             use_cache=True # KVSwap 必须开启 cache
         )
+        print(f"Moving model to {device}...")
+        self.model.to(device)
         self.model.eval()
 
     def generate(self, input_ids, gen_len, **kwargs):
         """
         封装 generate 函数，适配 pred.py 的调用格式
         """
+        kwargs.pop('verbose', None)      # HF generate 不支持 verbose
+        kwargs.pop('top_p', None)        # 我们强制 greedy，剔除外部传入的 top_p
+        kwargs.pop('temperature', None)  # 我们强制 greedy，剔除外部传入的 temperature
         with torch.no_grad():
             output_ids = self.model.generate(
                 input_ids=input_ids,
