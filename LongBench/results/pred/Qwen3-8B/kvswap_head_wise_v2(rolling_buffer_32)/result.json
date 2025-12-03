@@ -1,0 +1,11 @@
+{
+    "hotpotqa": 13.3,
+    "narrativeqa": 3.07,
+    "multifieldqa_en": 24.61,
+    "musique": 7.46,
+    "dureader": 26.61,
+    "gov_report": 31.88,
+    "samsum": 41.88,
+    "passage_retrieval_en": 92.6,
+    "lcc": 64.29
+}

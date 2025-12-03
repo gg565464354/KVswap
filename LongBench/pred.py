@@ -97,7 +97,7 @@ def parse_args(args=None):
     parser.add_argument("--model_name", type=str, default=None,choices=["llama-3-8b-1048k","Phi-4-mini-instruct","Qwen3-8B"])
     # parser.add_argument("--dataset_name", type=str_to_list, default=["ruler/niah_single_1"])
     parser.add_argument("--num_samples", type=int, default=-1)
-    parser.add_argument("--task", type=str, default="hotpotqa")
+    parser.add_argument("--task", type=str, default=None)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--cache_dir", type=str, default="/root/.cache/datasets/THUDM___long_bench",
                         help="HF datasets 缓存路径")

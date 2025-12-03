@@ -5,7 +5,8 @@
 #                          modular_qwen3.py file directly. One of our CI enforces this.
 #                🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
 
-#rolling_buffer(local_window) = 32
+#rolling_buffer(local_window) = 1
+
 
 # coding=utf-8
 # Copyright 2025 The Qwen team, Alibaba Group and the HuggingFace Inc. team. All rights reserved.
@@ -411,22 +412,9 @@ class Qwen3Attention(nn.Module):
             
             # 加上当前最新的 token (Rolling Buffer 简化版：总是保留最新 token,不管预测器选了谁，永远把最后一个 Token 加上。防止丢掉最新的历史信息)
             # 实际论文中还有一个 Rolling Window，这里简化为强制包含最新 Token
-            WINDOW_SIZE = 32 # 经验值，通常 16-64 之间
-            
-            # 计算窗口起始位置 (注意不要小于0)
-            start_idx = max(0, total_seq_len - WINDOW_SIZE)
-            
-            # 生成窗口索引: [start, start+1, ..., end-1]
-            # Shape: [Window_Size]
-            window_indices = torch.arange(start_idx, total_seq_len, device=query_states.device)
-            
-            # 扩展维度以匹配 Head-wise 结构
-            # [Window_Size] -> [1, 1, Window_Size] -> [B, H_k, Window_Size]
-            window_indices = window_indices.view(1, 1, -1).expand(bsz, num_kv_heads, -1)
-            
-            # 拼接: [KVSwap预测出的索引] + [最近的32个索引]
-            # 结果形状: [B, H_k, k*G + Window_Size]
-            token_indices = torch.cat([token_indices, window_indices], dim=-1)
+            current_idx = torch.tensor([[total_seq_len - 1]], device=query_states.device)
+            current_idx = current_idx.expand(bsz, num_kv_heads, 1)
+            token_indices = torch.cat([token_indices, current_idx], dim=-1)
             gather_indices = token_indices.unsqueeze(-1).expand(-1, -1, -1, self.head_dim)
             sparse_key_states = torch.gather(key_states, 2, gather_indices)
             sparse_value_states = torch.gather(value_states, 2, gather_indices)
