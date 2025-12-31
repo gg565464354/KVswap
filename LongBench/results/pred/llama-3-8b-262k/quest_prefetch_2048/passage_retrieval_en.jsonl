@@ -1,0 +1,200 @@
+{"pred": "15.", "answers": ["Paragraph 15"], "all_classes": null, "length": 8525}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8679}
+{"pred": "1.", "answers": ["Paragraph 18"], "all_classes": null, "length": 9562}
+{"pred": "17.", "answers": ["Paragraph 17"], "all_classes": null, "length": 9273}
+{"pred": "14.", "answers": ["Paragraph 14"], "all_classes": null, "length": 9175}
+{"pred": "3. Paragraph 1. ASSISTANT: 1. ASSISTANT: 2. ASSISTANT: 3. ASSISTANT: ", "answers": ["Paragraph 3"], "all_classes": null, "length": 9139}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 8832}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8995}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 7789}
+{"pred": "12. The three main drivers for the team, Andretti, Hunter-Reay, and Hinchcliffe, all returned for the season. In addition,", "answers": ["Paragraph 12"], "all_classes": null, "length": 10027}
+{"pred": "1. 2. 3. 4. 5. 6. 7. 8. 9. 10. 11.", "answers": ["Paragraph 22"], "all_classes": null, "length": 9273}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 10178}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9221}
+{"pred": " Paragraph 20.", "answers": ["Paragraph 19"], "all_classes": null, "length": 9718}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 3"], "all_classes": null, "length": 11340}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9750}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 8965}
+{"pred": "17.", "answers": ["Paragraph 17"], "all_classes": null, "length": 8965}
+{"pred": "4.", "answers": ["Paragraph 4"], "all_classes": null, "length": 9275}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 10934}
+{"pred": "24. The Farallon Trench was a subduction related tectonic formation located off the coast of western California continental margin during the late to mid Cen", "answers": ["Paragraph 24"], "all_classes": null, "length": 9713}
+{"pred": "2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 9947}
+{"pred": "6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 8991}
+{"pred": "12. The text is a summary of the career path of a person named Sallói in the field of football management. ASSISTANT:", "answers": ["Paragraph 12"], "all_classes": null, "length": 9211}
+{"pred": " Paragraph 4.  Please determine which paragraph the abstract is from. ASSISTANTUSER: 1. 2. 3. 4. ", "answers": ["Paragraph 24"], "all_classes": null, "length": 8267}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 8180}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 10576}
+{"pred": "6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 9513}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9747}
+{"pred": "3. ASSISTANT: 3. ASSISTANT: 3. ASSISTANT: 3. ASSISTANT: 3. ASSIST", "answers": ["Paragraph 3"], "all_classes": null, "length": 7534}
+{"pred": "1. 2. 3. 4. 5. 6. 7. 8. 9. 10. 11.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9908}
+{"pred": "25.", "answers": ["Paragraph 25"], "all_classes": null, "length": 8838}
+{"pred": "19. The Mahabharata narrates the story of the Pandavas, who were five brothers. The eldest brother, Yudh, was the", "answers": ["Paragraph 19"], "all_classes": null, "length": 10016}
+{"pred": "22.", "answers": ["Paragraph 22"], "all_classes": null, "length": 7992}
+{"pred": "6.", "answers": ["Paragraph 5"], "all_classes": null, "length": 9899}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 15"], "all_classes": null, "length": 9483}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 10118}
+{"pred": "5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 8975}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9934}
+{"pred": "6. ASSISTANT:  0. 0. 0. 0. 0. 0. 0. 0. ", "answers": ["Paragraph 6"], "all_classes": null, "length": 7736}
+{"pred": " Paragraph 2</s>", "answers": ["Paragraph 12"], "all_classes": null, "length": 8771}
+{"pred": " Paragraph 1.  Please determine which paragraph the abstract is from. ASSISTANT:", "answers": ["Paragraph 26"], "all_classes": null, "length": 10004}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9000}
+{"pred": "6</s>", "answers": ["Paragraph 6"], "all_classes": null, "length": 10255}
+{"pred": "13.", "answers": ["Paragraph 12"], "all_classes": null, "length": 8776}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 10742}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 17"], "all_classes": null, "length": 10320}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 8971}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 10277}
+{"pred": "21.", "answers": ["Paragraph 21"], "all_classes": null, "length": 9525}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8674}
+{"pred": "29.", "answers": ["Paragraph 29"], "all_classes": null, "length": 8629}
+{"pred": "28. The answer format must be like \"Paragraph 1\", \"Paragraph 2\", etc. ASSISTANT:", "answers": ["Paragraph 28"], "all_classes": null, "length": 9970}
+{"pred": "7. The abstract is from \"Paragraph 7\".</s>", "answers": ["Paragraph 7"], "all_classes": null, "length": 8791}
+{"pred": "15. ASSISTANT: 0. 0. 0. 0. 0. 0. 0. 0. 0", "answers": ["Paragraph 15"], "all_classes": null, "length": 9949}
+{"pred": "23.", "answers": ["Paragraph 22"], "all_classes": null, "length": 9832}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 16"], "all_classes": null, "length": 8952}
+{"pred": " Paragraph 14.", "answers": ["Paragraph 14"], "all_classes": null, "length": 8253}
+{"pred": "29.", "answers": ["Paragraph 29"], "all_classes": null, "length": 10431}
+{"pred": " Paragraph 1</s>", "answers": ["Paragraph 19"], "all_classes": null, "length": 10196}
+{"pred": "29.", "answers": ["Paragraph 28"], "all_classes": null, "length": 10633}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9824}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9324}
+{"pred": "10.", "answers": ["Paragraph 10"], "all_classes": null, "length": 10299}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9489}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 8281}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8804}
+{"pred": " Paragraph 16.", "answers": ["Paragraph 15"], "all_classes": null, "length": 8473}
+{"pred": "21.", "answers": ["Paragraph 21"], "all_classes": null, "length": 9216}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 10941}
+{"pred": "5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 10198}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 8526}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 8039}
+{"pred": "15. Two-photon excitation fluorescence microscopy has similarities to other confocal laser microscopy techniques such as laser scanning confocal microscopy and Raman microscopy. The optical", "answers": ["Paragraph 15"], "all_classes": null, "length": 9207}
+{"pred": "6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 9357}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 9713}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 8114}
+{"pred": "18. The GOG was founded in 1970 by a group of gynecologic oncologists. The GOG was founded in 1970 by a", "answers": ["Paragraph 18"], "all_classes": null, "length": 9148}
+{"pred": "11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 8795}
+{"pred": "18. ASSISTANT CONTROL\n\nParagraph 1: How, then, does one define a concept as a system's total mass which is easily defined in classical", "answers": ["Paragraph 18"], "all_classes": null, "length": 8491}
+{"pred": "7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 8642}
+{"pred": "24. 25. 26. 27. 28. 29. 30.", "answers": ["Paragraph 24"], "all_classes": null, "length": 11270}
+{"pred": "23.  Paragraph 1: The first son of the first son of the first son of the first son of the first son of the first son of the", "answers": ["Paragraph 23"], "all_classes": null, "length": 9267}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8747}
+{"pred": "18.", "answers": ["Paragraph 18"], "all_classes": null, "length": 10176}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 8712}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 8315}
+{"pred": "5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 9403}
+{"pred": " Paragraph 1.  The answer format must be like \"Paragraph 1\".  The answer is:  Paragraph 1.  The answer is: ", "answers": ["Paragraph 27"], "all_classes": null, "length": 10242}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 8143}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 29"], "all_classes": null, "length": 9508}
+{"pred": "23. A griefer or bad-faith player is a player in a multiplayer video game who purposely annoys and harasses other players by using game", "answers": ["Paragraph 23"], "all_classes": null, "length": 7817}
+{"pred": "17.", "answers": ["Paragraph 17"], "all_classes": null, "length": 7533}
+{"pred": "16. The civil parish meets with Rothley and some houses are located to the south of Rothley. The parish boundary also meets with Quorndon to the", "answers": ["Paragraph 16"], "all_classes": null, "length": 9056}
+{"pred": "18. Don Francisco Carascon was a Commissario Ordinatore (Chief Financial and Military officer in the Neapolitan Army) based in Naples and", "answers": ["Paragraph 18"], "all_classes": null, "length": 9565}
+{"pred": "13.", "answers": ["Paragraph 13"], "all_classes": null, "length": 10347}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 9260}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 18"], "all_classes": null, "length": 11516}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 9334}
+{"pred": " Paragraph 1</s>", "answers": ["Paragraph 19"], "all_classes": null, "length": 10614}
+{"pred": "1.", "answers": ["Paragraph 19"], "all_classes": null, "length": 9251}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9922}
+{"pred": "13. The road crosses the Big Timber Creek into Camden County, running along the border of Runnemede to the south, intersecting CR 679 before.", "answers": ["Paragraph 13"], "all_classes": null, "length": 9459}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 9025}
+{"pred": "22. Theon was a great philosopher of harmony and he discusses semitones in his treatise. There are two semitones used in Greek music,", "answers": ["Paragraph 22"], "all_classes": null, "length": 9717}
+{"pred": "11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 9446}
+{"pred": "3.  Paragraph 4.  Paragraph 5.  Paragraph 6.  Paragraph 7.  Paragraph 8.  Paragraph 9.", "answers": ["Paragraph 3"], "all_classes": null, "length": 10308}
+{"pred": "12. The abstract is from \"Paragraph 1\".</s>", "answers": ["Paragraph 12"], "all_classes": null, "length": 8558}
+{"pred": "10.  Paragraph 1.  Paragraph 2.  Paragraph  3.  Paragraph  4.  Paragraph  5.  Paragraph", "answers": ["Paragraph 10"], "all_classes": null, "length": 9485}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 8673}
+{"pred": " Paragraph 1.  Please determine which paragraph the abstract is from. ASSISTANT:", "answers": ["Paragraph 10"], "all_classes": null, "length": 9147}
+{"pred": "2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 10298}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8716}
+{"pred": "3.", "answers": ["Paragraph 7"], "all_classes": null, "length": 9171}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 9357}
+{"pred": "23.", "answers": ["Paragraph 25"], "all_classes": null, "length": 10597}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 8070}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 9095}
+{"pred": " Paragraph 3</s>", "answers": ["Paragraph 14"], "all_classes": null, "length": 8867}
+{"pred": "8. 5. 6. 7. 8. 9. 10. 11. 12. 13. 14.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9895}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9072}
+{"pred": "19.", "answers": ["Paragraph 19"], "all_classes": null, "length": 10852}
+{"pred": "22.", "answers": ["Paragraph 22"], "all_classes": null, "length": 9767}
+{"pred": "1. ASSISTANT: 1. ASSISTANT: 1. ASSISTANT: 1. ASSISTANT: 1. ASSIST", "answers": ["Paragraph 1"], "all_classes": null, "length": 9547}
+{"pred": "7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 8081}
+{"pred": "7. The abstract is from \"Paragraph 7\".</s>", "answers": ["Paragraph 7"], "all_classes": null, "length": 7860}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 9423}
+{"pred": "11.  Paragraph 1.  Paragraph 2.  Paragraph 3.  Paragraph 4.  Paragraph 5.  Paragraph 6.", "answers": ["Paragraph 11"], "all_classes": null, "length": 7818}
+{"pred": "18.", "answers": ["Paragraph 18"], "all_classes": null, "length": 10417}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 8644}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 16"], "all_classes": null, "length": 8429}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8931}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 27"], "all_classes": null, "length": 9098}
+{"pred": "7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 8751}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9296}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9412}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 9968}
+{"pred": "30.", "answers": ["Paragraph 29"], "all_classes": null, "length": 9105}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 8924}
+{"pred": "6. A set of similar paradoxes occurs within the area of physics involving arrow of time and causality. One of these is the grandfather paradox, which deals", "answers": ["Paragraph 6"], "all_classes": null, "length": 9991}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 10601}
+{"pred": "4. 1. 2. 3. 4. 5. 6. 7. 8. 9. 10.", "answers": ["Paragraph 4"], "all_classes": null, "length": 8559}
+{"pred": "30.", "answers": ["Paragraph 29"], "all_classes": null, "length": 10041}
+{"pred": "11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 8851}
+{"pred": "7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 10303}
+{"pred": " Paragraph 2.", "answers": ["Paragraph 22"], "all_classes": null, "length": 9065}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8976}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 8863}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 9616}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9063}
+{"pred": "11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 8464}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 9939}
+{"pred": "16.", "answers": ["Paragraph 16"], "all_classes": null, "length": 7539}
+{"pred": "2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 9321}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9976}
+{"pred": "2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 7814}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 10274}
+{"pred": "7\n\n[0_system],[0_user_0],0_assistant_0,[0_user_1],0_assistant_1,[0_user_2", "answers": ["Paragraph 7"], "all_classes": null, "length": 9091}
+{"pred": "1.", "answers": ["Paragraph 27"], "all_classes": null, "length": 10887}
+{"pred": "16.", "answers": ["Paragraph 16"], "all_classes": null, "length": 9628}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 8060}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9395}
+{"pred": "6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 8232}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 15"], "all_classes": null, "length": 9132}
+{"pred": "14.", "answers": ["Paragraph 14"], "all_classes": null, "length": 8557}
+{"pred": " Paragraph 11.", "answers": ["Paragraph 25"], "all_classes": null, "length": 9374}
+{"pred": "6. 1. 2. 3. 4. 5. 6. 7. 8. 9. 10.", "answers": ["Paragraph 6"], "all_classes": null, "length": 9024}
+{"pred": " Paragraph 2.  The answer format must be like \"Paragraph 2\".  The answer format must be like \"Paragraph 2\".  The answer format", "answers": ["Paragraph 2"], "all_classes": null, "length": 8492}
+{"pred": "5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 8944}
+{"pred": "12. Lief, Barda, and Jasmine are on a mission to retrieve the gems of the Belt of Deltora to defeat the Shadow Lord. Along", "answers": ["Paragraph 12"], "all_classes": null, "length": 8243}
+{"pred": " Paragraph 2.", "answers": ["Paragraph 12"], "all_classes": null, "length": 8452}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8418}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 9471}
+{"pred": "25.", "answers": ["Paragraph 25"], "all_classes": null, "length": 8888}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 8088}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 10318}
+{"pred": " Paragraph 1.  ASSISTANT:", "answers": ["Paragraph 7"], "all_classes": null, "length": 10754}
+{"pred": "10. The abstract is from Paragraph 10.", "answers": ["Paragraph 10"], "all_classes": null, "length": 8055}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9471}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 9415}
+{"pred": "18.", "answers": ["Paragraph 17"], "all_classes": null, "length": 10382}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 10098}
+{"pred": "30.", "answers": ["Paragraph 10"], "all_classes": null, "length": 10972}
+{"pred": "1. 1. 2. 3. 4. 5. 6. 7. 8. 9. 10.", "answers": ["Paragraph 26"], "all_classes": null, "length": 8937}
+{"pred": "1.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8275}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9032}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 7990}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9969}
+{"pred": "13.", "answers": ["Paragraph 13"], "all_classes": null, "length": 9356}
+{"pred": "12. ASSIST II, A Moorish. ASSIST II, A Moorish. ASSIST II, A Moorish. ASSIST II, A Moor", "answers": ["Paragraph 12"], "all_classes": null, "length": 9827}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 8886}
+{"pred": "6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 7953}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9019}
+{"pred": "25.", "answers": ["Paragraph 25"], "all_classes": null, "length": 9668}
+{"pred": "25.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9446}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9333}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 25"], "all_classes": null, "length": 9006}
+{"pred": "2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 10134}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8214}
+{"pred": "4.", "answers": ["Paragraph 4"], "all_classes": null, "length": 10149}

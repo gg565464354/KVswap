@@ -1,0 +1,5 @@
+{"pred": " Miller v. California was brought to court first. \n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words", "answers": ["Miller v. California"], "all_classes": null, "length": 8616}
+{"pred": " The author of the novel is Charles L. Clifford.\nAnswer: The author of the novel is Charles L. Clifford.\nAnswer: The author of the novel is", "answers": ["Charles L. Clifford"], "all_classes": null, "length": 11525}
+{"pred": " Lowell, Michigan\nAnswer: Lowell, Michigan\nAnswer: Lowell, Michigan\nAnswer: Lowell, Michigan\nAnswer: Lowell, Michigan\nAnswer: Lowell,", "answers": ["Norman"], "all_classes": null, "length": 11935}
+{"pred": " The Sun.\nAnswer: The Sun.\nAnswer: The Sun.\nAnswer: The Sun.\nAnswer: The Sun.\nAnswer: The Sun.\nAnswer: The Sun", "answers": ["Sun"], "all_classes": null, "length": 11879}
+{"pred": " Based on the given passages, Atom Egoyan's biggest commercial success is the film \"Chloe\" (2009), which was theatrically", "answers": ["erotic thriller film"], "all_classes": null, "length": 9865}

@@ -5,19 +5,103 @@
             "name": "pred.py (Qwen3-8B kvswap)",
             "type": "debugpy",
             "request": "launch",
-            "program": "/root/KVswap/LongBench/pred.py",
+            "program": "/root/KVswap/LongBench/pred.py", 
             "console": "integratedTerminal",
             "cwd": "/root/KVswap/LongBench",
             "args": [
-                "--model_name", "Qwen3-8B",
-                "--method", "kvswap",
-                // "--method", "full",
-                "--kv_group_size", "4"
+                "--model_name",
+                //  "Qwen3-8B",
+                 "llama-3-8b-262k",
+                "--method", 
+                "kvswap",
+                // "quest",
+                // "full",
+                // "infinigen",
+                "--name", 
+                // "quest_prefetch_2048",
+                // "test",
+                "kvswap_cache_fixed_k_test",
+                "--kv_group_size", "4",
+                "--kv_top_k_groups", "512",
+                // "--quest_page_size", "32",
+                // "--sparse_budget", "2048",
+
+                // "--partial_weight_ratio", "0.2",
+                // "--alpha", "2",
+                // "--budget", "0.2",
+                // "--capacity", "1",
+                // "--partial_weight_path", "/root/autodl-tmp/weights/Qwen3-8B_0.2",
+                // "--skewing_matrix_path", "/root/autodl-tmp/skewing_matrix/Qwen3-8B.pt",
+                // 最新代码默认跑代码里写死的一组数据集。
+                // 如果你想只跑特定的一个任务，取消下面注释使用 --task:
+                // "--task", "dureader", 
+
+                // 如果你想修改默认跑哪些数据集，请去代码 main 函数里修改 datasets 列表
+                
+                // 5. 其他参数
+                // "--e", // 如果是跑 LongBench-E 请取消注释
+                // "--num_examples", "10" // 调试时建议限制样本数，跑得快
             ],
             "env": {
                 "HF_ENDPOINT": "https://hf-mirror.com",
                 "http_proxy": "http://172.31.1.128:12798",
-                "https_proxy": "http://172.31.1.128:12798"
+                "https_proxy": "http://172.31.1.128:12798",
+                // "CUDA_VISIBLE_DEVICES": "0" // 建议显式指定显卡
+            }
+        },
+        {
+            "name": "longbench_pred",
+            "cwd": "/root/KVswap/LongBench",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "/root/KVswap/LongBench/pred.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--model-type",
+                // "llama",
+                "qwen3",
+                "--model",
+                // "llama-2-7b-inst-32k",
+                // "llama-3-8b-inst-262k",
+                "Qwen3-8B",
+                "--name",
+                "test",
+                // "infinigen_0.2",
+                "--datasets",
+                "hotpotqa", "narrativeqa", "multifieldqa_en", "musique", "dureader", "gov_report", "samsum", "passage_retrieval_en", "lcc", "qmsum",
+                // "hotpotqa narrativeqa qasper gov_report triviaqa passage_retrieval_en passage_retrieval_zh",
+                // "--infinigen",
+                // "--infinigen",
+                "--partial_weight_ratio", "0.2",
+                "--partial_weight_path", 
+                // // "/root/sparse-load/SparseCache/accuracy/setup/weights/Llama-2-7B-32K-Instruct_0.2",
+                "/root/autodl-tmp/weights/Qwen3-8B_0.2",
+                "--skewing_matrix_path", 
+                // // "/root/sparse-load/SparseCache/accuracy/setup/skewing_matrix/Llama-2-7B-32K-Instruct.pt",
+                "/root/autodl-tmp/skewing_matrix/Qwen3-8B.pt",
+                "--alpha", "2",
+                "--budget", "0.2",
+                "--capacity", "1",
+                // "--kvswap",
+                // "--kvswap-group-size", "4",
+                // "--kvswap-topk", "250",
+                // "--quest",
+                // "--arkvale",
+                // "--page-size",
+                // "32",
+                // "--page-budgets",
+                // "128", //(4096 / 32)
+                // "--n-max-bytes",
+                // "21474836480", //(20 * (1 << 30))
+                // "--n-max-cpu-bytes",
+                // "5242880000", //(50 * (1 << 30))
+                // "--page-topks",
+                // "32",
+            ],
+            "env": {
+                "CUDA_LAUNCH_BLOCKING": "1",
+                "LD_LIBRARY_PATH": "/root/miniconda3/envs/arkvale/lib:${env:LD_LIBRARY_PATH}",
+                "PATH": "/root/miniconda3/envs/arkvale/bin:${env:PATH}"
             }
         }
     ]

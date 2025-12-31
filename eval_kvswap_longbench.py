@@ -11,7 +11,7 @@ DEVICE = "cuda"
 
 # KVSwap 设置
 GROUP_SIZE = 4
-TOP_K_GROUPS = 100 # 选中 400 个 Token (加上最新的)
+TOP_K_GROUPS = 250 # 选中 400 个 Token (加上最新的)
 
 def build_prompt(context, question):
     # Qwen 的标准 Chat 模板
