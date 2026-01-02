@@ -245,8 +245,12 @@ class LlamaAttention(nn.Module):
         # local window（forward 里统一追加）
         self.local_window_size = int(getattr(config, "kvswap_local_window", 4))
 
-        # cache pool（Quest-style）
+        # ✅ Cache pool（Quest-style）：可选开关 + 策略（默认 fixed_k）
+        self.cache_pool_enabled = bool(getattr(config, "kvswap_enable_cache_pool", True))
         self.cache_pool_strategy = getattr(config, "kvswap_cache_pool_strategy", "fixed_k")  # "fixed_k" | "threshold"
+        if self.cache_pool_strategy not in ("fixed_k", "threshold"):
+            self.cache_pool_strategy = "fixed_k"
+
         self.cache_pool_k = int(getattr(config, "kvswap_cache_pool_k", 4))
         self.cache_pool_cap_ratio = float(getattr(config, "kvswap_cache_pool_cap_ratio", 0.75))
 
@@ -349,10 +353,21 @@ class LlamaAttention(nn.Module):
         return torch.nn.functional.pad(x, (0, target - n), value=pad_value)
 
     @torch.no_grad()
-    def _update_cache_pool(self, base_indices: torch.Tensor, total_seq_len: int, past_key_values: Optional[Cache]):
+    def _update_cache_pool(
+        self,
+        base_indices: torch.Tensor,
+        total_seq_len: int,
+        past_key_values: Optional[Cache],
+        cache_pool_enabled: Optional[bool] = None,
+        cache_pool_strategy: Optional[str] = None,
+    ):
         """
         base_indices: [B,H_kv,N]（不含 local/cur）
         return: pool_u, pool_valid（已去重 + pad=-1）
+
+        运行时覆盖：
+          - cache_pool_enabled=False：不使用跨 step 的 pool，直接返回 base_u/base_valid
+          - cache_pool_strategy="fixed_k"/"threshold"
         """
         st = self._kvswap_get_layer_state(past_key_values)
         base = self._clamp_keep_neg1(base_indices, 0, total_seq_len - 1)
@@ -364,12 +379,24 @@ class LlamaAttention(nn.Module):
         if st is None:
             return base_u, base_valid
 
+        # runtime overrides
+        if cache_pool_enabled is None:
+            cache_pool_enabled = self.cache_pool_enabled
+        if cache_pool_strategy is None:
+            cache_pool_strategy = self.cache_pool_strategy
+        if cache_pool_strategy not in ("fixed_k", "threshold"):
+            cache_pool_strategy = "fixed_k"
+
+        # pool disabled => no cross-step accumulation
+        if not cache_pool_enabled:
+            return base_u, base_valid
+
         cur_shape = (base.shape[0], base.shape[1])
         if st["shape"] is None or st["shape"] != cur_shape:
             st["pool"], st["pool_valid"], st["pool_step"] = None, None, 0
             st["shape"] = cur_shape
 
-        if self.cache_pool_strategy == "fixed_k":
+        if cache_pool_strategy == "fixed_k":
             step = int(st.get("pool_step", 0))
             do_reset = (self.cache_pool_k > 0) and ((step + 1) % self.cache_pool_k == 0)
 
@@ -544,6 +571,11 @@ class LlamaAttention(nn.Module):
         past_key_value: Optional[Cache] = None,
         cache_position: Optional[torch.LongTensor] = None,
         prefetched_token_indices: Optional[torch.Tensor] = None,
+
+        # ✅ 运行时覆盖（来自 generate kwargs）
+        kvswap_cache_pool_enabled: Optional[bool] = None,
+        kvswap_cache_pool_strategy: Optional[str] = None,
+
         **kwargs: Unpack[TransformersKwargs],
     ) -> tuple[torch.Tensor, torch.Tensor]:
 
@@ -571,7 +603,7 @@ class LlamaAttention(nn.Module):
         is_decoding = query_states.shape[2] == 1 and key_states.shape[2] > 1
 
         # =================================================================
-        # 分支 1: Decoding 阶段 (KVSwap + Cache Pool + Prefetch)
+        # 分支 1: Decoding 阶段 (KVSwap + Cache Pool)
         # =================================================================
         if self.kvswap_enabled and is_decoding:
             B, H_kv, S, D = key_states.shape
@@ -586,8 +618,14 @@ class LlamaAttention(nn.Module):
             if base_indices is None:
                 base_indices = torch.arange(S, device=device, dtype=torch.long).view(1, 1, -1).expand(B, H_kv, -1)
 
-            # 2) pool 更新（fixed_k / threshold）
-            pooled_indices, _ = self._update_cache_pool(base_indices, S, past_key_value)
+            # 2) pool 更新（fixed_k / threshold / or disabled）
+            pooled_indices, _ = self._update_cache_pool(
+                base_indices,
+                S,
+                past_key_value,
+                cache_pool_enabled=kvswap_cache_pool_enabled,
+                cache_pool_strategy=kvswap_cache_pool_strategy,
+            )
 
             # 3) append local window + cur + 去重（pad=-1）
             token_indices, valid_mask = self._append_local_and_cur_and_dedup(pooled_indices, S)
@@ -635,7 +673,6 @@ class LlamaAttention(nn.Module):
             key_states_r = repeat_kv(key_states, self.num_key_value_groups)
             value_states_r = repeat_kv(value_states, self.num_key_value_groups)
 
-            # Prefill 时 attention_mask=None 才用 is_causal=True
             use_causal_mask = (query_states.shape[2] > 1) and (attention_mask is None)
 
             attn_output = torch.nn.functional.scaled_dot_product_attention(
@@ -666,13 +703,16 @@ class LlamaDecoderLayer(GradientCheckpointingLayer):
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
-    def prefetch_indices(self, hidden_states, past_key_values, position_embeddings):
+    def prefetch_indices(self, hidden_states, past_key_values, position_embeddings, enable_prefetch: Optional[bool] = None):
         """
-        KVSwap Look-Ahead Prefetch（移植自 Qwen3）：
-        - 用 next layer 的 (LN + q_proj) 在当前 X_i 上构造 approximate query
-        - 从 cache 中取 next layer 的 full keys
-        - 调用 next layer attention 的 predict_indices（只返回 base indices，不含 local/cur）
+        KVSwap Look-Ahead Prefetch（移植自 Qwen3）:
+        enable_prefetch：允许运行时覆盖；None 时读 config.kvswap_enable_prefetch（默认 True）
         """
+        if enable_prefetch is None:
+            enable_prefetch = bool(getattr(self.self_attn.config, "kvswap_enable_prefetch", True))
+        if not enable_prefetch:
+            return None
+
         if not getattr(self.self_attn, "kvswap_enabled", False):
             return None
         if past_key_values is None:
@@ -682,9 +722,7 @@ class LlamaDecoderLayer(GradientCheckpointingLayer):
         if hidden_states is None or hidden_states.shape[1] != 1:
             return None
 
-        # approximate query: use this layer's input_layernorm + q_proj (this is "next layer" when called from model loop)
         hs = self.input_layernorm(hidden_states)
-
         input_shape = hs.shape[:-1]
         hidden_shape = (*input_shape, -1, self.self_attn.head_dim)
 
@@ -811,6 +849,12 @@ class LlamaModel(LlamaPreTrainedModel):
         inputs_embeds: Optional[torch.FloatTensor] = None,
         cache_position: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
+
+        # ✅ 与评测脚本一致的运行时开关（generate kwargs）
+        kvswap_enable_prefetch: Optional[bool] = None,
+        kvswap_cache_pool_enabled: Optional[bool] = None,
+        kvswap_cache_pool_strategy: Optional[str] = None,
+
         **kwargs: Unpack[TransformersKwargs],
     ) -> BaseModelOutputWithPast:
         if (input_ids is None) ^ (inputs_embeds is not None):
@@ -818,6 +862,22 @@ class LlamaModel(LlamaPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds: torch.Tensor = self.embed_tokens(input_ids)
+
+        # ====== 运行时控制：prefetch / cache pool 默认值（None -> config）======
+        if kvswap_enable_prefetch is None:
+            kvswap_enable_prefetch = bool(getattr(self.config, "kvswap_enable_prefetch", True))
+
+        if kvswap_cache_pool_enabled is None:
+            kvswap_cache_pool_enabled = bool(getattr(self.config, "kvswap_enable_cache_pool", True))
+
+        if kvswap_cache_pool_strategy is None:
+            kvswap_cache_pool_strategy = getattr(self.config, "kvswap_cache_pool_strategy", "fixed_k")
+        if kvswap_cache_pool_strategy not in ("fixed_k", "threshold"):
+            kvswap_cache_pool_strategy = "fixed_k"
+
+        # ====== 兼容：use_cache=None 时从 config.use_cache 读取 ======
+        if use_cache is None:
+            use_cache = bool(getattr(self.config, "use_cache", True))
 
         if use_cache and past_key_values is None:
             past_key_values = DynamicCache()
@@ -861,13 +921,14 @@ class LlamaModel(LlamaPreTrainedModel):
         for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
             indices_for_current_layer = prefetch_buffer_indices
 
-            # 预取下一层 indices（仅 decoding 且非最后一层）
-            if is_decoding and idx < (self.config.num_hidden_layers - 1):
+            # ✅ 预取下一层 indices（仅 decoding 且开关开启 且非最后一层）
+            if is_decoding and kvswap_enable_prefetch and idx < (self.config.num_hidden_layers - 1):
                 next_layer_obj = self.layers[idx + 1]
                 prefetch_buffer_indices = next_layer_obj.prefetch_indices(
                     hidden_states=hidden_states,
                     past_key_values=past_key_values,
                     position_embeddings=position_embeddings,
+                    enable_prefetch=kvswap_enable_prefetch,
                 )
             else:
                 prefetch_buffer_indices = None
@@ -880,6 +941,11 @@ class LlamaModel(LlamaPreTrainedModel):
                 cache_position=cache_position,
                 position_embeddings=position_embeddings,
                 prefetched_token_indices=indices_for_current_layer,
+
+                # ✅ 透传给 Attention（用于 cache pool 控制）
+                kvswap_cache_pool_enabled=kvswap_cache_pool_enabled,
+                kvswap_cache_pool_strategy=kvswap_cache_pool_strategy,
+
                 **kwargs,
             )
 
@@ -890,7 +956,7 @@ class LlamaModel(LlamaPreTrainedModel):
         hidden_states = self.norm(hidden_states)
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
+            past_key_values=past_key_values if use_cache else None,
         )
 
 
@@ -935,6 +1001,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         use_cache: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
         logits_to_keep: Union[int, torch.Tensor] = 0,
+
+        # ✅ 与评测脚本一致：显式参数（否则 generate 会报 unused）
+        kvswap_enable_prefetch: Optional[bool] = None,
+        kvswap_cache_pool_enabled: Optional[bool] = None,
+        kvswap_cache_pool_strategy: Optional[str] = None,
+
         **kwargs: Unpack[TransformersKwargs],
     ) -> CausalLMOutputWithPast:
         outputs: BaseModelOutputWithPast = self.model(
@@ -945,6 +1017,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cache_position=cache_position,
+
+            # ✅ 往下传
+            kvswap_enable_prefetch=kvswap_enable_prefetch,
+            kvswap_cache_pool_enabled=kvswap_cache_pool_enabled,
+            kvswap_cache_pool_strategy=kvswap_cache_pool_strategy,
+
             **kwargs,
         )
 

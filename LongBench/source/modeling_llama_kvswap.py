@@ -246,7 +246,7 @@ class LlamaAttention(nn.Module):
         self.local_window_size = int(getattr(config, "kvswap_local_window", 4))
 
         # cache pool（Quest-style）
-        self.cache_pool_strategy = getattr(config, "kvswap_cache_pool_strategy", "fixed_k")  # "fixed_k" | "threshold"
+        self.cache_pool_strategy = getattr(config, "kvswap_cache_pool_strategy", "threshold")  # "fixed_k" | "threshold"
         self.cache_pool_k = int(getattr(config, "kvswap_cache_pool_k", 4))
         self.cache_pool_cap_ratio = float(getattr(config, "kvswap_cache_pool_cap_ratio", 0.75))
 

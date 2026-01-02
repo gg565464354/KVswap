@@ -253,7 +253,12 @@ def get_pred(llm, data, max_new_tokens, prompt_format, model_name, out_path, arg
             "pad_token_id": llm.tokenizer.pad_token_id,
             "use_cache": True,
         }
-        
+        if args.method in ["kvswap", "quest"]:
+            gen_kwargs.update({
+                "kvswap_enable_prefetch": bool(args.kvswap_enable_prefetch),
+                "kvswap_cache_pool_enabled": bool(args.kvswap_cache_pool_enabled),
+                "kvswap_cache_pool_strategy": args.kvswap_cache_pool_strategy,
+            })
 
         # ---------- 执行生成 ---------
         try:
@@ -318,7 +323,12 @@ def parse_args(args=None):
     # KVSwap 参数
     parser.add_argument("--kv_group_size", type=int, default=4, help="KVSwap Group Size")
     parser.add_argument("--kv_top_k_groups", type=int, default=100, help="KVSwap TopK. -1 for auto (400//G)")
-
+    parser.add_argument("--kvswap_enable_prefetch", type=int, default=1, choices=[0, 1],
+                    help="0=disable, 1=enable KVSwap look-ahead prefetch")
+    parser.add_argument("--kvswap_cache_pool_enabled", type=int, default=1, choices=[0, 1],
+                        help="0=disable, 1=enable Quest-style cache pool")
+    parser.add_argument("--kvswap_cache_pool_strategy", type=str, default="fixed_k",
+                        choices=["fixed_k", "threshold"], help="Cache pool strategy")
     # Infinigen 参数
     parser.add_argument("--partial_weight_ratio", type=float, default=0.1)
     parser.add_argument("--partial_weight_path", type=str, default=None, help="Directory for partial_weight_q_*.pt")
