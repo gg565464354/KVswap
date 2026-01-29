@@ -10,23 +10,28 @@
             "cwd": "/root/KVswap/LongBench",
             "args": [
                 "--model_name",
-                 "Qwen3-8B",
-                //  "llama-3-8b-262k",
+                //  "Qwen3-8B",
+                 "llama-3-8b-262k",
                 "--method", 
-                "kvswap",
+                // "kvswap",
                 // "quest",
                 // "full",
-                // "infinigen",
+                "infinigen",
                 "--name", 
                 // "quest_prefetch_2048",
                 // "test",
-                "kvswap_no_prefetch_2048",
-                "--kv_group_size", "4",
-                "--kv_top_k_groups", "512",
-                "--kvswap_enable_prefetch", "0",
-                "--kvswap_cache_pool_enabled", "0",
-                "--kvswap_cache_pool_strategy", "threshold",
-                // "--kvswap_cache_pool_strategy", "fixed_k",
+                "infinigen_fixed_k_cache_2048",
+                "--infinigen_cache_pool_enabled", "1",
+                "--infinigen_cache_pool_strategy", "fixed_k",
+                "--partial_weight_path", "/root/autodl-tmp/weights/Llama-3-8B-Instruct-262k_0.2",
+                "--skewing_matrix_path", "/root/autodl-tmp/skewing_matrix/Llama-3-8B-Instruct-262k.pt",
+                // "kvswap_prefetch_2048",
+                // "--kv_group_size", "4",
+                // "--kv_top_k_groups", "512",
+                // "--kvswap_enable_prefetch", "1",
+                // "--kvswap_cache_pool_enabled", "0",
+                // "--kvswap_cache_pool_strategy", "threshold",
+                // // "--kvswap_cache_pool_strategy", "fixed_k",
                 // "--quest_page_size", "32",
                 // "--sparse_budget", "2048",
 
@@ -34,8 +39,6 @@
                 // "--alpha", "2",
                 // "--budget", "0.2",
                 // "--capacity", "1",
-                // "--partial_weight_path", "/root/autodl-tmp/weights/Qwen3-8B_0.2",
-                // "--skewing_matrix_path", "/root/autodl-tmp/skewing_matrix/Qwen3-8B.pt",
                 // 最新代码默认跑代码里写死的一组数据集。
                 // 如果你想只跑特定的一个任务，取消下面注释使用 --task:
                 // "--task", "dureader", 
@@ -46,12 +49,6 @@
                 // "--e", // 如果是跑 LongBench-E 请取消注释
                 // "--num_examples", "10" // 调试时建议限制样本数，跑得快
             ],
-            "env": {
-                "HF_ENDPOINT": "https://hf-mirror.com",
-                "http_proxy": "http://172.31.1.128:12798",
-                "https_proxy": "http://172.31.1.128:12798",
-                // "CUDA_VISIBLE_DEVICES": "0" // 建议显式指定显卡
-            }
         },
         {
             "name": "longbench_pred",

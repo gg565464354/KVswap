@@ -18,11 +18,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Callable, Optional, Union
 import math
 import torch.nn.functional as F
 import torch
 from torch import nn
+import os
 
 from ...activations import ACT2FN
 from ...cache_utils import Cache, DynamicCache
@@ -72,10 +74,12 @@ class LlamaRMSNorm(nn.Module):
 
 
 class LlamaRotaryEmbedding(nn.Module):
-    inv_freq: torch.Tensor
+    inv_freq: torch.Tensor  # for register_buffer
 
     def __init__(self, config: LlamaConfig, device=None):
         super().__init__()
+
+        # 兼容读取 rope_type（尽量和不同版本 config 字段兼容）
         rope_type = None
         if hasattr(config, "rope_scaling") and isinstance(config.rope_scaling, dict):
             rope_type = config.rope_scaling.get("rope_type", config.rope_scaling.get("type"))
@@ -85,10 +89,12 @@ class LlamaRotaryEmbedding(nn.Module):
             rope_type = getattr(config, "rope_type")
 
         self.rope_type = rope_type or "default"
+
         self.max_seq_len_cached = config.max_position_embeddings
         self.original_max_seq_len = config.max_position_embeddings
-
         self.config = config
+
+        # ✅ 关键修复：default / unknown 时走本地默认实现，避免 KeyError
         rope_init_fn = ROPE_INIT_FUNCTIONS.get(self.rope_type)
         if rope_init_fn is None or self.rope_type == "default":
             rope_init_fn = self.compute_default_rope_parameters
@@ -104,22 +110,24 @@ class LlamaRotaryEmbedding(nn.Module):
         device: Optional["torch.device"] = None,
         seq_len: Optional[int] = None,
     ) -> tuple["torch.Tensor", float]:
+        # Llama 默认 rope_theta 通常是 10000；新模型也可能不同，优先从 config 读
         base = getattr(config, "rope_theta", 283461213.0)
         dim = getattr(config, "head_dim", None) or (config.hidden_size // config.num_attention_heads)
         attention_factor = 1.0
+
         inv_freq = 1.0 / (
             base ** (torch.arange(0, dim, 2, dtype=torch.int64).to(device=device, dtype=torch.float) / dim)
         )
         return inv_freq, attention_factor
 
     @torch.no_grad()
-    @dynamic_rope_update  # power user: used with advanced RoPE types (e.g. dynamic rope)
+    @dynamic_rope_update
     def forward(self, x, position_ids):
         inv_freq_expanded = self.inv_freq[None, :, None].float().expand(position_ids.shape[0], -1, 1).to(x.device)
         position_ids_expanded = position_ids[:, None, :].float()
 
         device_type = x.device.type if isinstance(x.device.type, str) and x.device.type != "mps" else "cpu"
-        with torch.autocast(device_type=device_type, enabled=False):  # Force float32
+        with torch.autocast(device_type=device_type, enabled=False):
             freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(1, 2)
             emb = torch.cat((freqs, freqs), dim=-1)
             cos = emb.cos() * self.attention_scaling
@@ -136,25 +144,7 @@ def rotate_half(x):
 
 
 def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
-    """Applies Rotary Position Embedding to the query and key tensors.
-
-    Args:
-        q (`torch.Tensor`): The query tensor.
-        k (`torch.Tensor`): The key tensor.
-        cos (`torch.Tensor`): The cosine part of the rotary embedding.
-        sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`, *optional*):
-            Deprecated and unused.
-        unsqueeze_dim (`int`, *optional*, defaults to 1):
-            The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
-            sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
-            that cos[position_ids] and sin[position_ids] have the shape [batch_size, seq_len, head_dim]. Then, if q and
-            k have the shape [batch_size, heads, seq_len, head_dim], then setting unsqueeze_dim=1 makes
-            cos[position_ids] and sin[position_ids] broadcastable to the shapes of q and k. Similarly, if q and k have
-            the shape [batch_size, seq_len, heads, head_dim], then set unsqueeze_dim=2.
-    Returns:
-        `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
-    """
+    """Applies Rotary Position Embedding to the query and key tensors."""
     cos = cos.unsqueeze(unsqueeze_dim)
     sin = sin.unsqueeze(unsqueeze_dim)
     q_embed = (q * cos) + (rotate_half(q) * sin)
@@ -225,6 +215,7 @@ class LlamaAttention(nn.Module):
         self.layer_idx = layer_idx
         self.hidden_size = config.hidden_size
         self.num_heads = config.num_attention_heads
+        self.num_kv_heads = config.num_key_value_heads
         self.head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
         self.num_key_value_groups = config.num_attention_heads // config.num_key_value_heads
         self.scaling = self.head_dim**-0.5
@@ -244,149 +235,69 @@ class LlamaAttention(nn.Module):
             config.num_attention_heads * self.head_dim, config.hidden_size, bias=config.attention_bias
         )
 
-        #### InfiniGen Hyperparams ####
-        self.cache_ratio = None
-        self.partial_weight_ratio = None
-        self.previous_hidden_states = None
-        self.current_hidden_states = None
-        self.partial_weight_q = None
-        self.skewing_matrix = None
-        self.skewing_matrx = None  # alias for potential external usage
-        self.alpha = 5
-        self.capacity = 1.0
-        self.budget = 0.2
-        self.eviction_policy = "counter"  # "fifo" | "lru" | "counter"
-        self.density = None
+        # ================= KVSwap: 初始化（含 cache/prefetch 逻辑）=================
+        self.kvswap_enabled = False
 
-        # Infinigen cache pool (fixed_k / threshold)
-        self.cache_pool_enabled = bool(getattr(config, "infinigen_cache_pool_enabled", False))
-        self.cache_pool_strategy = getattr(config, "infinigen_cache_pool_strategy", "fixed_k")
+        # grouping
+        self.kv_group_size = int(getattr(config, "kvswap_group_size", 4))
+        self.kv_top_k_groups = int(getattr(config, "kvswap_top_k_groups", 100))
+
+        # local window（forward 里统一追加）
+        self.local_window_size = int(getattr(config, "kvswap_local_window", 4))
+
+        # ✅ Cache pool（Quest-style）：可选开关 + 策略（默认 fixed_k）
+        self.cache_pool_enabled = bool(getattr(config, "kvswap_enable_cache_pool", True))
+        self.cache_pool_strategy = getattr(config, "kvswap_cache_pool_strategy", "fixed_k")  # "fixed_k" | "threshold"
         if self.cache_pool_strategy not in ("fixed_k", "threshold"):
             self.cache_pool_strategy = "fixed_k"
-        self.cache_pool_k = int(getattr(config, "infinigen_cache_pool_k", 4))
-        self.cache_pool_cap_ratio = float(getattr(config, "infinigen_cache_pool_cap_ratio", 0.75))
-        self.local_window_size = int(getattr(config, "infinigen_local_window", 0))
-        self.fixed_topk = int(getattr(config, "infinigen_fixed_topk", -1))
-        ###############################
 
-    def kv_cache_mask(self, attn):
-        # Hyperparameters
-        # budget: maximum kv cache percentage to prefetch per layer
-        # capacity: maximum kv cache percentage to store in cpu
-        assert self.budget < self.capacity
+        self.cache_pool_k = int(getattr(config, "kvswap_cache_pool_k", 4))
+        self.cache_pool_cap_ratio = float(getattr(config, "kvswap_cache_pool_cap_ratio", 0.75))
 
-        b, h, tgt_len, src_len = attn.shape
-        attn = attn.view(b * h, tgt_len, src_len)
-        heads = b * h
+        # compressed_k 增量缓存开关
+        self.enable_compressed_k_cache = bool(getattr(config, "kvswap_enable_compressed_k_cache", True))
 
-        attn_mask = torch.full(attn.shape, -10000, dtype=attn.dtype, device=attn.device)
-        attn_mask = torch.triu(attn_mask, diagonal=1)
-        fetch_mask = torch.zeros_like(attn)
-        m_inf = torch.tensor([[-10000]], dtype=attn.dtype, device=attn.device)
-        attn = attn + attn_mask
-        del attn_mask
+        # [修改] 路径指向 kvswap_projections_llama
+        proj_dir = "/root/autodl-tmp/kvswap_projections_llama"
+        proj_path = f"{proj_dir}/projection_layer_{layer_idx}.pt"
 
-        max_val = torch.max(attn, dim=-1, keepdim=True)[0][0]
-        threshold = max_val - self.alpha
-        fetch_num = (attn >= threshold).sum(dim=-1)  # heads, tgt_len
-        del threshold
+        if os.path.exists(proj_path):
+            try:
+                A = torch.load(proj_path, map_location="cpu")
+                self.register_buffer("projection_matrix", A.to(dtype=torch.float16), persistent=False)
+                self.kvswap_enabled = True
+                self.target_rank = A.shape[1]
+            except Exception as e:
+                print(f"Layer {layer_idx}: Failed to load KVSwap matrix from {proj_path}: {e}")
+        # =======================================================================
 
-        fetch_num = torch.mean(fetch_num.to(attn.dtype), dim=0).to(torch.int32)  # fetch same amount for each head
-        fetch_max = int(src_len * self.budget)
-        fetch_num = torch.where(fetch_num >= fetch_max, torch.tensor(fetch_max, device=attn.device), fetch_num)  # tgt_len
+        # for InfiniGen compatibility (kept)
+        self.current_hidden_states = None
+        self.previous_hidden_states = None
 
-        store_max = int(src_len * self.capacity)
-
-        # always fetch lower triangle for the first fetch_max steps
-        fetch_mask[:, :fetch_max] = torch.tril(
-            torch.ones((fetch_max, src_len), dtype=attn.dtype, device=attn.device)
-        ).unsqueeze(0)
-
-        for i in range(fetch_max, store_max):
-            k = int(fetch_num[i].item()) if isinstance(fetch_num[i], torch.Tensor) else int(fetch_num[i])
-            if k > 0:
-                _, ind = torch.topk(attn[:, i, : i + 1], k=k, dim=-1)
-                fetch_mask[:, i, : i + 1] = fetch_mask[:, i, : i + 1].scatter(-1, ind, 1)
-
-        for i in range(store_max, tgt_len):
-            k = int(fetch_num[i].item()) if isinstance(fetch_num[i], torch.Tensor) else int(fetch_num[i])
-            if k > 0:
-                _, ind = torch.topk(attn[:, i, : i + 1], k=k, dim=-1)
-                fetch_mask[:, i, : i + 1] = fetch_mask[:, i, : i + 1].scatter(-1, ind, 1)
-
-            if i == (tgt_len - 1):
-                continue
-
-            # Before adding KV cache, evict one
-            if self.eviction_policy == "fifo":
-                evict_idx = i - store_max
-                attn[:, (i + 1) :, evict_idx] = -10000
-
-            elif self.eviction_policy == "lru":
-                idx = torch.arange(i + 1, device=attn.device).unsqueeze(0).unsqueeze(-1)
-                idx = idx * fetch_mask[:, : i + 1, : int(i / 2)]  # avoid evicting recently added ones
-                # Most recently fetched idx per each KV cache
-                _, idx = torch.max(idx, dim=1, keepdim=True)  # heads, 1, i/2
-                _, ind = torch.min(idx, dim=-1, keepdim=True)  # heads, 1, 1
-                ind = ind.repeat(1, tgt_len - (i + 1), 1)
-                attn[:, (i + 1) :] = attn[:, (i + 1) :].scatter(-1, ind, -10000)
-
-            elif self.eviction_policy == "counter":
-                counter = torch.sum(fetch_mask[:, : i + 1, : int(i / 2)], dim=1, keepdim=True)  # heads, 1, i/2
-                _, ind = torch.min(counter, dim=-1, keepdim=True)  # heads, 1, 1
-                ind = ind.repeat(1, tgt_len - (i + 1), 1)
-                attn[:, (i + 1) :] = attn[:, (i + 1) :].scatter(-1, ind, -10000)
-
-            else:
-                raise NotImplementedError
-
-        density = fetch_mask.float().sum().item() / heads / (tgt_len * (tgt_len + 1) / 2)
-        fetch_mask = torch.where(fetch_mask == 1, 0, m_inf)
-        fetch_mask = fetch_mask.view(b, h, tgt_len, src_len)
-        return fetch_mask, density
-
-    def _get_skewing_matrix(self):
-        return self.skewing_matrix if self.skewing_matrix is not None else self.skewing_matrx
-
-    def _apply_skewing(self, x: torch.Tensor, skew: Optional[torch.Tensor] = None) -> torch.Tensor:
-        sm = skew if skew is not None else self._get_skewing_matrix()
-        if sm is None:
-            return x
-        sm = sm.to(device=x.device, dtype=x.dtype)
-        if sm.dim() == 2:
-            sm_exp = sm.unsqueeze(0).unsqueeze(0)
-        elif sm.dim() == 3:
-            if sm.shape[0] == x.shape[1]:
-                sm_exp = sm.unsqueeze(0)
-            elif x.shape[1] % sm.shape[0] == 0:
-                sm_exp = sm.repeat_interleave(x.shape[1] // sm.shape[0], dim=0).unsqueeze(0)
-            else:
-                sm_exp = sm[:1].unsqueeze(0).expand(1, x.shape[1], -1, -1)
-        else:
-            return x
-        return torch.matmul(x, sm_exp)
-
-    # -------------------- InfiniGen cache pool utils --------------------
-    def _infinigen_get_layer_state(self, past_key_values: Optional[Cache]):
+    # -------------------- Quest-style pool cache utils --------------------
+    def _kvswap_get_layer_state(self, past_key_values: Optional[Cache]):
         if past_key_values is None:
             return None
         try:
-            if not hasattr(past_key_values, "_infinigen_state"):
-                past_key_values._infinigen_state = {}
+            if not hasattr(past_key_values, "_kvswap_state"):
+                past_key_values._kvswap_state = {}
         except Exception:
             return None
 
-        st = past_key_values._infinigen_state.get(self.layer_idx)
+        st = past_key_values._kvswap_state.get(self.layer_idx)
         if st is None:
             st = {
-                "pool": None,        # [B,H,N] long (pad=-1)
-                "pool_valid": None,  # [B,H,N] bool
-                "pool_ts": None,     # [B,H,N] long, last-used step (pad=-1)
+                # compressed_k cache
+                "ck_seq_len": 0,
+                "compressed_k": None,  # [B,T,R]
+                # pool cache
+                "pool": None,          # [B,H_kv,N] long (pad=-1)
+                "pool_valid": None,    # [B,H_kv,N] bool
                 "pool_step": 0,
-                "pool_cap": None,
-                "shape": None,       # (B,H)
+                "shape": None,         # (B,H_kv)
             }
-            past_key_values._infinigen_state[self.layer_idx] = st
+            past_key_values._kvswap_state[self.layer_idx] = st
         return st
 
     @staticmethod
@@ -395,6 +306,11 @@ class LlamaAttention(nn.Module):
 
     @torch.no_grad()
     def _unique_pad_bh(self, x: torch.Tensor, pad_value: int = -1):
+        """
+        向量化 unique + pad：
+        x: [B,H,N] long
+        return padded: [B,H,M] long (pad=pad_value), valid: [B,H,M] bool
+        """
         B, H, N = x.shape
         device = x.device
 
@@ -430,36 +346,6 @@ class LlamaAttention(nn.Module):
 
         return padded, valid_out
 
-    @staticmethod
-    def _pack_by_mask(x: torch.Tensor, mask: torch.Tensor, pad_value: int = -1):
-        """
-        Pack values where mask=True into a compact last-dim list (order preserved), pad with pad_value.
-        x, mask: [B,H,N]
-        returns: [B,H,M] where M = max(mask.sum(-1))
-        """
-        B, H, N = x.shape
-        device = x.device
-        if N == 0:
-            return torch.full((B, H, 0), pad_value, device=device, dtype=x.dtype)
-
-        pos_raw = torch.cumsum(mask.to(torch.int32), dim=-1) - 1
-        pos = torch.where(mask, pos_raw, torch.full_like(pos_raw, -1))
-        cnt = mask.sum(dim=-1)
-        M = int(cnt.max().item()) if cnt.numel() > 0 else 0
-
-        out = torch.full((B, H, M), pad_value, device=device, dtype=x.dtype)
-        if M == 0:
-            return out
-
-        bh = torch.arange(B * H, device=device).unsqueeze(1).expand(B * H, N).reshape(-1)
-        pos_f = pos.reshape(-1)
-        val_f = x.reshape(-1)
-        m = pos_f >= 0
-
-        out_f = out.view(B * H, M)
-        out_f[bh[m], pos_f[m]] = val_f[m]
-        return out
-
     def _pad_last_dim(self, x: torch.Tensor, target: int, pad_value):
         n = x.shape[-1]
         if n == target:
@@ -475,7 +361,15 @@ class LlamaAttention(nn.Module):
         cache_pool_enabled: Optional[bool] = None,
         cache_pool_strategy: Optional[str] = None,
     ):
-        st = self._infinigen_get_layer_state(past_key_values)
+        """
+        base_indices: [B,H_kv,N]（不含 local/cur）
+        return: pool_u, pool_valid（已去重 + pad=-1）
+
+        运行时覆盖：
+          - cache_pool_enabled=False：不使用跨 step 的 pool，直接返回 base_u/base_valid
+          - cache_pool_strategy="fixed_k"/"threshold"
+        """
+        st = self._kvswap_get_layer_state(past_key_values)
         base = self._clamp_keep_neg1(base_indices, 0, total_seq_len - 1)
 
         base_u, base_valid = self._unique_pad_bh(base, pad_value=-1)
@@ -485,6 +379,7 @@ class LlamaAttention(nn.Module):
         if st is None:
             return base_u, base_valid
 
+        # runtime overrides
         if cache_pool_enabled is None:
             cache_pool_enabled = self.cache_pool_enabled
         if cache_pool_strategy is None:
@@ -492,76 +387,31 @@ class LlamaAttention(nn.Module):
         if cache_pool_strategy not in ("fixed_k", "threshold"):
             cache_pool_strategy = "fixed_k"
 
+        # pool disabled => no cross-step accumulation
         if not cache_pool_enabled:
             return base_u, base_valid
 
         cur_shape = (base.shape[0], base.shape[1])
         if st["shape"] is None or st["shape"] != cur_shape:
-            st["pool"], st["pool_valid"], st["pool_ts"], st["pool_step"], st["pool_cap"] = None, None, None, 0, None
+            st["pool"], st["pool_valid"], st["pool_step"] = None, None, 0
             st["shape"] = cur_shape
 
         if cache_pool_strategy == "fixed_k":
             step = int(st.get("pool_step", 0))
-            topk = int(base.shape[-1])
-            cap = max(1, int(math.ceil(1.5 * float(topk))))
-            do_update = (self.cache_pool_k <= 0) or ((step + 1) % self.cache_pool_k == 0)
+            do_reset = (self.cache_pool_k > 0) and ((step + 1) % self.cache_pool_k == 0)
 
-            if st["pool"] is None or st.get("pool_cap") != cap:
-                pool = torch.full((base.shape[0], base.shape[1], cap), -1, device=base.device, dtype=torch.long)
-                pool_valid = torch.zeros((base.shape[0], base.shape[1], cap), device=base.device, dtype=torch.bool)
-                pool_ts = torch.full((base.shape[0], base.shape[1], cap), -1, device=base.device, dtype=torch.long)
-                do_update = True
+            if do_reset or st["pool"] is None:
+                pool_u, pool_valid = base_u, base_valid
             else:
-                pool = st["pool"]
-                pool_valid = st["pool_valid"]
-                pool_ts = st.get("pool_ts")
-                if pool_valid is None:
-                    pool_valid = pool >= 0
-                if pool_ts is None:
-                    pool_ts = torch.full_like(pool, -1, dtype=torch.long)
-
-            if do_update:
-                cur_step = step + 1
-                # Update timestamps for hits in current topk.
-                base_mask = base_valid.unsqueeze(-1)
-                pool_mask = pool_valid.unsqueeze(-2)
-                eq = (base_u.unsqueeze(-1) == pool.unsqueeze(-2)) & base_mask & pool_mask
-                pool_hit = eq.any(dim=-2)
-                pool_ts = torch.where(pool_hit, torch.full_like(pool_ts, cur_step), pool_ts)
-
-                # Insert new indices by evicting least-recently-used slots.
-                base_in_pool = eq.any(dim=-1)
-                new_mask = base_valid & (~base_in_pool)
-                max_new = int(new_mask.sum(dim=-1).max().item()) if new_mask.numel() > 0 else 0
-                if max_new > 0:
-                    new_packed = self._pack_by_mask(base_u, new_mask, pad_value=-1)  # [B,H,max_new]
-
-                    ts_eff = torch.where(pool_valid, pool_ts, torch.full_like(pool_ts, -1))
-                    evict_order = torch.argsort(ts_eff, dim=-1, descending=False)
-                    evict_pos = evict_order[..., :max_new]
-
-                    bh = torch.arange(pool.shape[0] * pool.shape[1], device=pool.device).unsqueeze(1)
-                    bh = bh.expand(-1, max_new).reshape(-1)
-                    pos_f = evict_pos.reshape(-1)
-                    val_f = new_packed.reshape(-1)
-                    m = val_f >= 0
-
-                    pool_f = pool.view(-1, cap)
-                    pool_valid_f = pool_valid.view(-1, cap)
-                    pool_ts_f = pool_ts.view(-1, cap)
-                    pool_f[bh[m], pos_f[m]] = val_f[m]
-                    pool_valid_f[bh[m], pos_f[m]] = True
-                    pool_ts_f[bh[m], pos_f[m]] = cur_step
-
-                    pool = pool_f.view_as(pool)
-                    pool_valid = pool_valid_f.view_as(pool_valid)
-                    pool_ts = pool_ts_f.view_as(pool_ts)
+                merged = torch.cat([st["pool"], base], dim=-1)
+                merged = self._clamp_keep_neg1(merged, 0, total_seq_len - 1)
+                pool_u, pool_valid = self._unique_pad_bh(merged, pad_value=-1)
 
             st["pool_step"] = step + 1
-            st["pool_cap"] = cap
-            st["pool"], st["pool_valid"], st["pool_ts"] = pool, pool_valid, pool_ts
-            return pool, pool_valid
+            st["pool"], st["pool_valid"] = pool_u, pool_valid
+            return pool_u, pool_valid
 
+        # threshold
         if st["pool"] is None:
             merged = base
         else:
@@ -574,7 +424,7 @@ class LlamaAttention(nn.Module):
         thr = torch.minimum(2 * critical_cnt, torch.full_like(critical_cnt, cap))
 
         merged_cnt = merged_valid.sum(dim=-1)
-        need_rebuild = merged_cnt > thr
+        need_rebuild = merged_cnt > thr  # [B,H_kv]
 
         N = max(base_u.shape[-1], merged_u.shape[-1])
         base_u_pad = self._pad_last_dim(base_u, N, pad_value=-1)
@@ -592,6 +442,11 @@ class LlamaAttention(nn.Module):
 
     @torch.no_grad()
     def _append_local_and_cur_and_dedup(self, indices: torch.Tensor, total_seq_len: int):
+        """
+        indices: [B,H_kv,N] (pad=-1 allowed)
+        -> concat local window + cur，再整体去重+pad=-1
+        return: token_indices, valid_mask
+        """
         B, H, _ = indices.shape
         device = indices.device
         cur = total_seq_len - 1
@@ -606,6 +461,108 @@ class LlamaAttention(nn.Module):
         merged = self._clamp_keep_neg1(merged, 0, cur)
         return self._unique_pad_bh(merged, pad_value=-1)
 
+    # -------------------- KVSwap compressed_k incremental cache --------------------
+    @torch.no_grad()
+    def _get_compressed_k_cached(self, full_key_states: torch.Tensor, past_key_values: Optional[Cache]):
+        """
+        full_key_states: [B,H_kv,T,D]
+        return compressed_k: [B,T,R]
+        """
+        B, H, T, D = full_key_states.shape
+        A = getattr(self, "projection_matrix", None)
+        if A is None:
+            return None
+
+        st = self._kvswap_get_layer_state(past_key_values)
+        if (not self.enable_compressed_k_cache) or st is None:
+            k_flat = full_key_states.transpose(1, 2).reshape(B, T, -1)
+            A2 = A.to(device=k_flat.device, dtype=k_flat.dtype)
+            return torch.matmul(k_flat, A2)
+
+        ck = st["compressed_k"]
+        last_T = int(st.get("ck_seq_len", 0))
+
+        # full recompute cases
+        if ck is None or last_T <= 0 or T <= 0 or T < last_T or (T - last_T) != 1:
+            k_flat = full_key_states.transpose(1, 2).reshape(B, T, -1)
+            A2 = A.to(device=k_flat.device, dtype=k_flat.dtype)
+            ck = torch.matmul(k_flat, A2)
+            st["compressed_k"] = ck
+            st["ck_seq_len"] = T
+            return ck
+
+        # +1 incremental
+        last = full_key_states[:, :, T - 1, :].reshape(B, -1)  # [B,H*D]
+        A2 = A.to(device=last.device, dtype=last.dtype)
+        last_ck = torch.matmul(last, A2).unsqueeze(1)  # [B,1,R]
+        ck = torch.cat([ck, last_ck], dim=1)
+        st["compressed_k"] = ck
+        st["ck_seq_len"] = T
+        return ck
+
+    # -------------------- KVSwap index prediction --------------------
+    def _compute_indices_from_groups(self, top_group_indices, total_seq_len, device):
+        """
+        group->token 展开（不拼 local/cur；local/cur 统一在 forward 里追加）
+        """
+        bsz, _, num_kv_heads, k = top_group_indices.shape
+        offsets = torch.arange(self.kv_group_size, device=device, dtype=torch.long)
+        token_indices = (top_group_indices.unsqueeze(-1) * self.kv_group_size) + offsets.view(1, 1, 1, 1, -1)
+        token_indices = token_indices.view(bsz, num_kv_heads, -1)
+        token_indices = token_indices.clamp(max=total_seq_len - 1)
+        return token_indices
+
+    @torch.no_grad()
+    def predict_indices(self, query_states, full_key_states, past_key_values: Optional[Cache] = None):
+        """
+        KVSwap：低秩近似分数 -> group max -> topk groups -> 展开 token indices
+        仅用于 decoding（q_len=1）
+        """
+        if not self.kvswap_enabled:
+            return None
+
+        bsz, num_q_heads, q_len, _ = query_states.shape
+        _, num_kv_heads, total_seq_len, head_dim = full_key_states.shape
+
+        # compressed_k（用增量缓存）
+        compressed_k = self._get_compressed_k_cached(full_key_states, past_key_values)
+        if compressed_k is None:
+            k_flat = full_key_states.transpose(1, 2).reshape(bsz, total_seq_len, -1)
+            A = self.projection_matrix.to(device=k_flat.device, dtype=k_flat.dtype)
+            compressed_k = torch.matmul(k_flat, A)
+
+        # A per KV head for projecting q: [H_kv,D,R] -> expand to Q heads: [H_q,D,R]
+        A = self.projection_matrix
+        A_reshaped = A.view(num_kv_heads, head_dim, -1)  # [H_kv,D,R]
+        A_expanded = A_reshaped.repeat_interleave(self.num_key_value_groups, dim=0)  # [H_q,D,R]
+
+        # query_states: [B,H_q,1,D] -> [B,1,H_q,D]
+        q_permuted = query_states.transpose(1, 2)
+        A_expanded = A_expanded.to(device=q_permuted.device, dtype=q_permuted.dtype)
+        q_lr = torch.einsum("bshd,hdr->bshr", q_permuted, A_expanded)  # [B,1,H_q,R]
+
+        # approx_scores: [B,1,H_q,T]
+        approx_scores = torch.matmul(q_lr, compressed_k.transpose(1, 2))
+
+        # aggregate GQA heads -> KV heads
+        gqa_group = num_q_heads // num_kv_heads
+        scores_view = approx_scores.view(bsz, 1, num_kv_heads, gqa_group, -1)
+        agg_scores = scores_view.sum(dim=3)  # [B,1,H_kv,T]
+
+        # pad to group boundary
+        pad_len = (self.kv_group_size - (agg_scores.shape[-1] % self.kv_group_size)) % self.kv_group_size
+        if pad_len > 0:
+            agg_scores = torch.nn.functional.pad(agg_scores, (0, pad_len), value=-float("inf"))
+
+        num_groups = agg_scores.shape[-1] // self.kv_group_size
+        grouped_scores = agg_scores.view(bsz, 1, num_kv_heads, num_groups, self.kv_group_size)
+        group_max_scores = grouped_scores.max(dim=-1).values  # [B,1,H_kv,num_groups]
+
+        k = min(self.kv_top_k_groups, num_groups)
+        topk_indices = torch.topk(group_max_scores, k, dim=-1).indices  # [B,1,H_kv,k]
+
+        return self._compute_indices_from_groups(topk_indices, total_seq_len, query_states.device)
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -613,12 +570,16 @@ class LlamaAttention(nn.Module):
         attention_mask: Optional[torch.Tensor],
         past_key_value: Optional[Cache] = None,
         cache_position: Optional[torch.LongTensor] = None,
-        infinigen_cache_pool_enabled: Optional[bool] = None,
-        infinigen_cache_pool_strategy: Optional[str] = None,
-        infinigen_fixed_topk: Optional[int] = None,
+        prefetched_token_indices: Optional[torch.Tensor] = None,
+
+        # ✅ 运行时覆盖（来自 generate kwargs）
+        kvswap_cache_pool_enabled: Optional[bool] = None,
+        kvswap_cache_pool_strategy: Optional[str] = None,
+
         **kwargs: Unpack[TransformersKwargs],
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        
+
+        # keep InfiniGen behavior (only for decode token)
         if hidden_states.shape[1] == 1:
             self.current_hidden_states = hidden_states.clone()
         else:
@@ -627,10 +588,10 @@ class LlamaAttention(nn.Module):
         input_shape = hidden_states.shape[:-1]
         hidden_shape = (*input_shape, -1, self.head_dim)
 
-        # 1. 计算 Q, K, V
-        query_states = self.q_proj(hidden_states).view(hidden_shape).transpose(1, 2)
-        key_states = self.k_proj(hidden_states).view(hidden_shape).transpose(1, 2)
-        value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
+        # 1. Q, K, V
+        query_states = self.q_proj(hidden_states).view(hidden_shape).transpose(1, 2)   # [B,H_q,S,D]
+        key_states = self.k_proj(hidden_states).view(hidden_shape).transpose(1, 2)     # [B,H_kv,S,D]
+        value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)   # [B,H_kv,S,D]
 
         cos, sin = position_embeddings
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
@@ -638,121 +599,97 @@ class LlamaAttention(nn.Module):
         if past_key_value is not None:
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
-        
-        key_states_r = repeat_kv(key_states, self.num_key_value_groups)
-        value_states_r = repeat_kv(value_states, self.num_key_value_groups)
 
-        # ==================== 核心修复 ====================
-        # 判断是 Prefill (长序列) 还是 Decoding (单 Token)
-        is_prefill = query_states.shape[2] > 1
+        is_decoding = query_states.shape[2] == 1 and key_states.shape[2] > 1
 
-        if is_prefill:
-            # === Prefill 阶段: 必须使用 Flash Attention (SDPA) 避免 OOM ===
-            # 使用 PyTorch 内置的 SDPA，它会自动调用 Flash Attention 2
-            
-            # SDPA 期望的 mask 逻辑比较特殊，通常如果是 causal 的话，如果不传 mask 且设置 is_causal=True 会最快
-            # 但 transformers 传进来的 attention_mask 通常是 4D 的 [B, 1, Q, K]
-            # print("DEBUG: Running Flash Attention for Prefill...")
-            # 尝试使用 SDPA
-            attn_output = F.scaled_dot_product_attention(
+        # =================================================================
+        # 分支 1: Decoding 阶段 (KVSwap + Cache Pool)
+        # =================================================================
+        if self.kvswap_enabled and is_decoding:
+            B, H_kv, S, D = key_states.shape
+            device = key_states.device
+
+            # 1) base indices（不含 local/cur）
+            if prefetched_token_indices is not None:
+                base_indices = prefetched_token_indices.to(device=device, dtype=torch.long)
+            else:
+                base_indices = self.predict_indices(query_states, key_states, past_key_values=past_key_value)
+
+            if base_indices is None:
+                base_indices = torch.arange(S, device=device, dtype=torch.long).view(1, 1, -1).expand(B, H_kv, -1)
+
+            # 2) pool 更新（fixed_k / threshold / or disabled）
+            pooled_indices, _ = self._update_cache_pool(
+                base_indices,
+                S,
+                past_key_value,
+                cache_pool_enabled=kvswap_cache_pool_enabled,
+                cache_pool_strategy=kvswap_cache_pool_strategy,
+            )
+
+            # 3) append local window + cur + 去重（pad=-1）
+            token_indices, valid_mask = self._append_local_and_cur_and_dedup(pooled_indices, S)
+
+            # 4) gather（-1 不能直接 gather；先 clamp 到 0，再用 valid_mask 屏蔽）
+            safe_token_indices = token_indices.clamp(min=0)
+            gather_indices = safe_token_indices.unsqueeze(-1).expand(-1, -1, -1, self.head_dim)
+            sparse_key_states = torch.gather(key_states, 2, gather_indices)
+            sparse_value_states = torch.gather(value_states, 2, gather_indices)
+
+            # 5) gather attention mask（包含 padding/causal 的 additive mask）
+            sparse_mask = None
+            if attention_mask is not None and attention_mask.dim() == 4 and attention_mask.shape[-1] == S:
+                # attention_mask: [B,1,1,S] -> [B,H_kv,1,S]
+                mask_expanded = attention_mask.expand(-1, H_kv, -1, -1)
+                mask_indices = safe_token_indices.unsqueeze(2)  # [B,H_kv,1,N]
+                sparse_mask = torch.gather(mask_expanded, 3, mask_indices)  # [B,H_kv,1,N]
+                sparse_mask = repeat_kv(sparse_mask, self.num_key_value_groups)  # [B,H_q,1,N]
+
+            # 6) valid_mask -> additive -inf（屏蔽 pad=-1 位置）
+            invalid = (~valid_mask).unsqueeze(2)  # [B,H_kv,1,N]
+            add = torch.zeros((B, H_kv, 1, valid_mask.shape[-1]), device=device, dtype=query_states.dtype)
+            add.masked_fill_(invalid, torch.finfo(query_states.dtype).min)
+            add = repeat_kv(add, self.num_key_value_groups)  # [B,H_q,1,N]
+            sparse_mask = add if sparse_mask is None else (sparse_mask + add)
+
+            # 7) repeat kv + SDPA
+            sparse_key_states = repeat_kv(sparse_key_states, self.num_key_value_groups)
+            sparse_value_states = repeat_kv(sparse_value_states, self.num_key_value_groups)
+
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                query_states,
+                sparse_key_states,
+                sparse_value_states,
+                attn_mask=sparse_mask,
+                dropout_p=0.0 if not self.training else self.attention_dropout,
+                scale=self.scaling,
+                is_causal=False,
+            )
+
+        # =================================================================
+        # 分支 2: Prefill / KVSwap 未启用 -> 标准 SDPA
+        # =================================================================
+        else:
+            key_states_r = repeat_kv(key_states, self.num_key_value_groups)
+            value_states_r = repeat_kv(value_states, self.num_key_value_groups)
+
+            use_causal_mask = (query_states.shape[2] > 1) and (attention_mask is None)
+
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
                 query_states,
                 key_states_r,
                 value_states_r,
-                attn_mask=attention_mask if attention_mask is not None else None,
-                dropout_p=self.attention_dropout if self.training else 0.0,
-                is_causal=True if attention_mask is None else False, # 如果有 mask 就传 mask，没有就设为 causal
-                scale=self.scaling
+                attn_mask=attention_mask,
+                dropout_p=0.0 if not self.training else self.attention_dropout,
+                is_causal=use_causal_mask,
+                scale=self.scaling,
             )
-            
-            # 这里的 attn_weights 返回 None，因为 FA2 不返回权重矩阵
-            attn_weights = None
-        # 强制走 Eager 模式
-        else:
 
-            # === InfiniGen: Gather 模式实现 ===
-            # 只有当有上一层的信息，且不是第一层时才进行 Top-K 稀疏计算
-            if (self.previous_hidden_states is not None) and (self.partial_weight_q is not None):
-                query_prev = self.q_proj(self.previous_hidden_states).view(hidden_shape).transpose(1, 2)
-                query_prev, _ = apply_rotary_pos_emb(query_prev, key_states, cos, sin)
-
-                query_prev = self._apply_skewing(query_prev)
-                key_for_spec = self._apply_skewing(key_states_r)
-
-                mask = (
-                    self.partial_weight_q[0]
-                    .view(-1, self.head_dim)
-                    .unsqueeze(0)
-                    .unsqueeze(2)
-                    .repeat(1, 1, query_states.shape[2], 1)
-                )
-                query_prev = torch.where(mask.to(torch.bool), query_prev, torch.zeros_like(query_prev))
-
-                attn_spec = torch.matmul(query_prev, key_for_spec.transpose(2, 3)) * self.scaling
-                if attention_mask is not None:
-                    causal_mask = attention_mask[:, :, :, : key_for_spec.shape[-2]]
-                    attn_spec = attn_spec + causal_mask
-
-                total_tokens = key_states_r.shape[-2]
-                fixed_topk = infinigen_fixed_topk if infinigen_fixed_topk is not None else self.fixed_topk
-                if fixed_topk is not None and fixed_topk > 0:
-                    target_k = min(int(fixed_topk), total_tokens)
-                else:
-                    target_k = int(total_tokens * self.budget)
-                target_k = max(target_k, 1)
-
-                topk_indices = torch.topk(attn_spec, k=target_k, dim=-1).indices  # [B,H,Q,K]
-
-                base_indices = topk_indices[:, :, 0, :] if topk_indices.shape[2] == 1 else topk_indices.squeeze(2)
-                pooled_indices, _ = self._update_cache_pool(
-                    base_indices,
-                    total_tokens,
-                    past_key_value,
-                    cache_pool_enabled=infinigen_cache_pool_enabled,
-                    cache_pool_strategy=infinigen_cache_pool_strategy,
-                )
-                token_indices, valid_mask = self._append_local_and_cur_and_dedup(pooled_indices, total_tokens)
-
-                safe_token_indices = token_indices.clamp(min=0)
-                gather_indices = safe_token_indices.unsqueeze(-1).expand(-1, -1, -1, self.head_dim)
-                selected_keys = torch.gather(key_states_r, 2, gather_indices)
-                selected_values = torch.gather(value_states_r, 2, gather_indices)
-
-                attn_output_weights = torch.matmul(query_states, selected_keys.transpose(2, 3)) * self.scaling
-                if attention_mask is not None and attention_mask.dim() == 4:
-                    mask_expanded = attention_mask.expand(-1, selected_keys.shape[1], -1, -1)
-                    mask_indices = safe_token_indices.unsqueeze(2)
-                    sparse_mask = torch.gather(mask_expanded, 3, mask_indices)
-                    attn_output_weights = attn_output_weights + sparse_mask
-
-                invalid = (~valid_mask).unsqueeze(2)
-                attn_output_weights = attn_output_weights.masked_fill(
-                    invalid, torch.finfo(attn_output_weights.dtype).min
-                )
-
-                attn_output_weights = nn.functional.softmax(
-                    attn_output_weights, dim=-1, dtype=torch.float32
-                ).to(query_states.dtype)
-                attn_output = torch.matmul(attn_output_weights, selected_values)
-
-                sel_cnt = valid_mask.sum(dim=-1).float()
-                self.density = (sel_cnt.mean() / float(total_tokens)).item()
-            
-            # === 标准全量 Attention (第一层或没有上一层信息时) ===
-            else:
-                attn_weights = torch.matmul(query_states, key_states_r.transpose(2, 3)) * self.scaling
-                if attention_mask is not None:
-                    causal_mask = attention_mask[:, :, :, : key_states_r.shape[-2]]
-                    attn_weights = attn_weights + causal_mask
-                
-                attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-                attn_output = torch.matmul(attn_weights, value_states_r)
-
-            # 最终输出 Projection
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
         attn_output = self.o_proj(attn_output)
-        
-        return attn_output, None # 注意：这里为了简化，不返回 attn_weights
+
+        return attn_output, None
 
 
 class LlamaDecoderLayer(GradientCheckpointingLayer):
@@ -766,6 +703,67 @@ class LlamaDecoderLayer(GradientCheckpointingLayer):
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
+    def prefetch_indices(self, hidden_states, past_key_values, position_embeddings, enable_prefetch: Optional[bool] = None):
+        """
+        KVSwap Look-Ahead Prefetch（移植自 Qwen3）:
+        enable_prefetch：允许运行时覆盖；None 时读 config.kvswap_enable_prefetch（默认 True）
+        """
+        if enable_prefetch is None:
+            enable_prefetch = bool(getattr(self.self_attn.config, "kvswap_enable_prefetch", True))
+        if not enable_prefetch:
+            return None
+
+        if not getattr(self.self_attn, "kvswap_enabled", False):
+            return None
+        if past_key_values is None:
+            return None
+
+        # 只在 decoding 场景有意义
+        if hidden_states is None or hidden_states.shape[1] != 1:
+            return None
+
+        hs = self.input_layernorm(hidden_states)
+        input_shape = hs.shape[:-1]
+        hidden_shape = (*input_shape, -1, self.self_attn.head_dim)
+
+        approx_query_states = self.self_attn.q_proj(hs).view(hidden_shape).transpose(1, 2)  # [B,H_q,1,D]
+
+        cos, sin = position_embeddings
+        approx_query_states, _ = apply_rotary_pos_emb(approx_query_states, approx_query_states, cos, sin)
+
+        # 取 full_key_states（兼容 DynamicCache / 旧 cache）
+        full_key_states = None
+        target_layer = self.self_attn.layer_idx
+        try:
+            if hasattr(past_key_values, "layers"):
+                if len(past_key_values.layers) > target_layer:
+                    layer_obj = past_key_values.layers[target_layer]
+                    if hasattr(layer_obj, "keys"):
+                        full_key_states = layer_obj.keys
+                    elif hasattr(layer_obj, "key_cache"):
+                        full_key_states = layer_obj.key_cache
+            elif hasattr(past_key_values, "key_cache"):
+                if len(past_key_values.key_cache) > target_layer:
+                    full_key_states = past_key_values.key_cache[target_layer]
+            elif hasattr(past_key_values, "_key_cache"):
+                if len(past_key_values._key_cache) > target_layer:
+                    full_key_states = past_key_values._key_cache[target_layer]
+            else:
+                item = past_key_values[target_layer]
+                if isinstance(item, (tuple, list)):
+                    full_key_states = item[0]
+        except Exception:
+            return None
+
+        if full_key_states is None:
+            return None
+
+        return self.self_attn.predict_indices(
+            approx_query_states,
+            full_key_states,
+            past_key_values=past_key_values,
+        )
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -775,10 +773,12 @@ class LlamaDecoderLayer(GradientCheckpointingLayer):
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
+        prefetched_token_indices: Optional[torch.Tensor] = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> tuple[torch.Tensor]:
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
+
         # Self Attention
         hidden_states, _ = self.self_attn(
             hidden_states=hidden_states,
@@ -788,6 +788,7 @@ class LlamaDecoderLayer(GradientCheckpointingLayer):
             use_cache=use_cache,
             cache_position=cache_position,
             position_embeddings=position_embeddings,
+            prefetched_token_indices=prefetched_token_indices,
             **kwargs,
         )
         hidden_states = residual + hidden_states
@@ -837,7 +838,7 @@ class LlamaModel(LlamaPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
-    @check_model_inputs()
+    # @check_model_inputs
     @auto_docstring
     def forward(
         self,
@@ -848,6 +849,12 @@ class LlamaModel(LlamaPreTrainedModel):
         inputs_embeds: Optional[torch.FloatTensor] = None,
         cache_position: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
+
+        # ✅ 与评测脚本一致的运行时开关（generate kwargs）
+        kvswap_enable_prefetch: Optional[bool] = None,
+        kvswap_cache_pool_enabled: Optional[bool] = None,
+        kvswap_cache_pool_strategy: Optional[str] = None,
+
         **kwargs: Unpack[TransformersKwargs],
     ) -> BaseModelOutputWithPast:
         if (input_ids is None) ^ (inputs_embeds is not None):
@@ -855,6 +862,22 @@ class LlamaModel(LlamaPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds: torch.Tensor = self.embed_tokens(input_ids)
+
+        # ====== 运行时控制：prefetch / cache pool 默认值（None -> config）======
+        if kvswap_enable_prefetch is None:
+            kvswap_enable_prefetch = bool(getattr(self.config, "kvswap_enable_prefetch", True))
+
+        if kvswap_cache_pool_enabled is None:
+            kvswap_cache_pool_enabled = bool(getattr(self.config, "kvswap_enable_cache_pool", True))
+
+        if kvswap_cache_pool_strategy is None:
+            kvswap_cache_pool_strategy = getattr(self.config, "kvswap_cache_pool_strategy", "fixed_k")
+        if kvswap_cache_pool_strategy not in ("fixed_k", "threshold"):
+            kvswap_cache_pool_strategy = "fixed_k"
+
+        # ====== 兼容：use_cache=None 时从 config.use_cache 读取 ======
+        if use_cache is None:
+            use_cache = bool(getattr(self.config, "use_cache", True))
 
         if use_cache and past_key_values is None:
             past_key_values = DynamicCache()
@@ -880,7 +903,36 @@ class LlamaModel(LlamaPreTrainedModel):
         hidden_states = inputs_embeds
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
 
+        # 是否 decoding（用于 KVSwap prefetch pipeline）
+        past_len = 0
+        if past_key_values is not None:
+            try:
+                past_len = past_key_values.get_seq_length()
+            except TypeError:
+                try:
+                    past_len = past_key_values.get_seq_length(0)
+                except Exception:
+                    past_len = 0
+        is_decoding = hidden_states.shape[1] == 1 and past_key_values is not None and past_len > 0
+
+        # KVSwap 正确流水线：prefetch(i+1) 用 X_i；compute(i) 用 buffer(i)
+        prefetch_buffer_indices = None
+
         for idx, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
+            indices_for_current_layer = prefetch_buffer_indices
+
+            # ✅ 预取下一层 indices（仅 decoding 且开关开启 且非最后一层）
+            if is_decoding and kvswap_enable_prefetch and idx < (self.config.num_hidden_layers - 1):
+                next_layer_obj = self.layers[idx + 1]
+                prefetch_buffer_indices = next_layer_obj.prefetch_indices(
+                    hidden_states=hidden_states,
+                    past_key_values=past_key_values,
+                    position_embeddings=position_embeddings,
+                    enable_prefetch=kvswap_enable_prefetch,
+                )
+            else:
+                prefetch_buffer_indices = None
+
             hidden_states = decoder_layer(
                 hidden_states,
                 attention_mask=causal_mask,
@@ -888,6 +940,12 @@ class LlamaModel(LlamaPreTrainedModel):
                 past_key_value=past_key_values,
                 cache_position=cache_position,
                 position_embeddings=position_embeddings,
+                prefetched_token_indices=indices_for_current_layer,
+
+                # ✅ 透传给 Attention（用于 cache pool 控制）
+                kvswap_cache_pool_enabled=kvswap_cache_pool_enabled,
+                kvswap_cache_pool_strategy=kvswap_cache_pool_strategy,
+
                 **kwargs,
             )
 
@@ -898,7 +956,7 @@ class LlamaModel(LlamaPreTrainedModel):
         hidden_states = self.norm(hidden_states)
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
-            past_key_values=past_key_values,
+            past_key_values=past_key_values if use_cache else None,
         )
 
 
@@ -943,28 +1001,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
         use_cache: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
         logits_to_keep: Union[int, torch.Tensor] = 0,
-        infinigen_cache_pool_enabled: Optional[bool] = None,
-        infinigen_cache_pool_strategy: Optional[str] = None,
-        infinigen_fixed_topk: Optional[int] = None,
+
+        # ✅ 与评测脚本一致：显式参数（否则 generate 会报 unused）
+        kvswap_enable_prefetch: Optional[bool] = None,
+        kvswap_cache_pool_enabled: Optional[bool] = None,
+        kvswap_cache_pool_strategy: Optional[str] = None,
+
         **kwargs: Unpack[TransformersKwargs],
     ) -> CausalLMOutputWithPast:
-        r"""
-        Example:
-
-        ```python
-        >>> from transformers import AutoTokenizer, LlamaForCausalLM
-
-        >>> model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
-        >>> tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
-
-        >>> prompt = "Hey, are you conscious? Can you talk to me?"
-        >>> inputs = tokenizer(prompt, return_tensors="pt")
-
-        >>> # Generate
-        >>> generate_ids = model.generate(inputs.input_ids, max_length=30)
-        >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-        "Hey, are you conscious? Can you talk to me?\nI'm not conscious, but I can talk to you."
-        ```"""
         outputs: BaseModelOutputWithPast = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
@@ -973,14 +1017,16 @@ class LlamaForCausalLM(LlamaPreTrainedModel, GenerationMixin):
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
             cache_position=cache_position,
-            infinigen_cache_pool_enabled=infinigen_cache_pool_enabled,
-            infinigen_cache_pool_strategy=infinigen_cache_pool_strategy,
-            infinigen_fixed_topk=infinigen_fixed_topk,
+
+            # ✅ 往下传
+            kvswap_enable_prefetch=kvswap_enable_prefetch,
+            kvswap_cache_pool_enabled=kvswap_cache_pool_enabled,
+            kvswap_cache_pool_strategy=kvswap_cache_pool_strategy,
+
             **kwargs,
         )
 
         hidden_states = outputs.last_hidden_state
-        # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
         slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
         logits = self.lm_head(hidden_states[:, slice_indices, :])
 

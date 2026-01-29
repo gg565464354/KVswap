@@ -174,8 +174,6 @@ def configure_model_params(llm_wrapper, args):
                 la.cache_pool_k = args.infinigen_cache_pool_k
                 la.cache_pool_cap_ratio = args.infinigen_cache_pool_cap_ratio
                 la.local_window_size = args.infinigen_local_window
-            if hasattr(la, "fixed_topk"):
-                la.fixed_topk = args.infinigen_fixed_topk
     elif args.method == "quest":
         # 计算 Top-K: 预算 tokens / page_size
         # 例如: 预算 4096 / page 64 = 64 个 pages
@@ -271,7 +269,6 @@ def get_pred(llm, data, max_new_tokens, prompt_format, model_name, out_path, arg
             gen_kwargs.update({
                 "infinigen_cache_pool_enabled": bool(args.infinigen_cache_pool_enabled),
                 "infinigen_cache_pool_strategy": args.infinigen_cache_pool_strategy,
-                "infinigen_fixed_topk": args.infinigen_fixed_topk,
             })
 
         # ---------- 执行生成 ---------
@@ -357,8 +354,6 @@ def parse_args(args=None):
     parser.add_argument("--infinigen_cache_pool_k", type=int, default=4)
     parser.add_argument("--infinigen_cache_pool_cap_ratio", type=float, default=0.75)
     parser.add_argument("--infinigen_local_window", type=int, default=0)
-    parser.add_argument("--infinigen_fixed_topk", type=int, default=-1,
-                        help="Force fixed Top-K tokens for Infinigen (<=0 to disable)")
 
     # Quest / Common 参数
     parser.add_argument("--sparse_budget", type=int, default=2048, help="Token budget for Quest/Sparse methods")
