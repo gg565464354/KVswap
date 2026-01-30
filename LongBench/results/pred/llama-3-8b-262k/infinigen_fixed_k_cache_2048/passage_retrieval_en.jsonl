@@ -1,0 +1,200 @@
+{"pred": "15.", "answers": ["Paragraph 15"], "all_classes": null, "length": 8525}
+{"pred": "8. 8. 8. 8. 8. 8. 8. 8. 8. 8. 8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8679}
+{"pred": "1.  (Paragraph 1)  (Paragraph 1:  (Paragraph 1)  (Paragraph 1)  (Paragraph 1)", "answers": ["Paragraph 18"], "all_classes": null, "length": 9562}
+{"pred": "17.", "answers": ["Paragraph 17"], "all_classes": null, "length": 9273}
+{"pred": "14.", "answers": ["Paragraph 14"], "all_classes": null, "length": 9175}
+{"pred": "3.  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)", "answers": ["Paragraph 3"], "all_classes": null, "length": 9139}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 8832}
+{"pred": "27.  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)", "answers": ["Paragraph 27"], "all_classes": null, "length": 8995}
+{"pred": "30.  (Paragraph 30)  (The embodiment of the Gopher mascot came to life in 1952 when a University of Minnesota band member wore", "answers": ["Paragraph 30"], "all_classes": null, "length": 7789}
+{"pred": "12.  (Paragraph 12)  (Paragraph 12)  (Paragraph 12) (Paragraph 12) (Paragraph 12) (Paragraph", "answers": ["Paragraph 12"], "all_classes": null, "length": 10027}
+{"pred": "1.", "answers": ["Paragraph 22"], "all_classes": null, "length": 9273}
+{"pred": "30. 30. 30. 30. 30. 30. 30. 30. 30. 30. 30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 10178}
+{"pred": "24. 24. 24. 24. 24. 24. 24. 24. 24. 24. 24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9221}
+{"pred": " Paragraph 20.", "answers": ["Paragraph 19"], "all_classes": null, "length": 9718}
+{"pred": " Paragraph 3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 11340}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9750}
+{"pred": "3.  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)", "answers": ["Paragraph 3"], "all_classes": null, "length": 8965}
+{"pred": "17.", "answers": ["Paragraph 17"], "all_classes": null, "length": 8965}
+{"pred": "4. 4. 4. 4. 4. 4. 4. 4. 4. 4. 4.", "answers": ["Paragraph 4"], "all_classes": null, "length": 9275}
+{"pred": "3. 3. 3. 3. 3. 3. 3. 3. 3. 3. 3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 10934}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9713}
+{"pred": "2.  (Paragraph 2)  (Paragraph 2)  (Paragraph 2)  (Paragraph 2)  (Paragraph 2)", "answers": ["Paragraph 2"], "all_classes": null, "length": 9947}
+{"pred": "6.  (Paragraph 6)  (6. 6)  (6.  (6.  (6.  (6. ", "answers": ["Paragraph 6"], "all_classes": null, "length": 8991}
+{"pred": "12.  (Paragraph 12)  (Paragraph 1: 12)  (Paragraph 1: 12)  (Paragraph 12)", "answers": ["Paragraph 12"], "all_classes": null, "length": 9211}
+{"pred": " Paragraph 24.  The abstract is from paragraph 24.  The text discusses the relationship between Tibet and the relationship between Tibet and India in the 195", "answers": ["Paragraph 24"], "all_classes": null, "length": 8267}
+{"pred": "30.  (Paragraph 30)  (Paragraph 1)  (Paragraph 1) (Paragraph 1) (Paragraph 1) (Paragraph", "answers": ["Paragraph 30"], "all_classes": null, "length": 8180}
+{"pred": "1\n\n[0_system],[0], 0,[0], 0,[0], 0,[0,[0], 0], 0,[0", "answers": ["Paragraph 1"], "all_classes": null, "length": 10576}
+{"pred": "6.  (Paragraph 6)  (Paragraph 6: 6)  (Paragraph 6: 6)  (Paragraph 6)", "answers": ["Paragraph 6"], "all_classes": null, "length": 9513}
+{"pred": "8. 8. 8. 8. 8. 8. 8. 8. 8. 8. 8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9747}
+{"pred": "3.  # 3.  The 3.   # 3.  3.  3.  3.  ", "answers": ["Paragraph 3"], "all_classes": null, "length": 7534}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9908}
+{"pred": "25.", "answers": ["Paragraph 25"], "all_classes": null, "length": 8838}
+{"pred": "19. 19. 19. 19. 19. 19. 19. 19. 19. 19. 19.", "answers": ["Paragraph 19"], "all_classes": null, "length": 10016}
+{"pred": "22.  (Paragraph 22nd paragraph) 22nd paragraph.  22nd paragraph. 22nd paragraph 22nd paragraph 22nd", "answers": ["Paragraph 22"], "all_classes": null, "length": 7992}
+{"pred": "6.  (Paragraph 6)  (Paragraph 7)  (Paragraph 7)  (Paragraph 8)  (Paragraph   (", "answers": ["Paragraph 5"], "all_classes": null, "length": 9899}
+{"pred": " Paragraph 15.  (The abstract is from Paragraph 15.) 15.  (The abstract is the abstract from paragraph.) 15.  (", "answers": ["Paragraph 15"], "all_classes": null, "length": 9483}
+{"pred": "28.  (Paragraph 28)  (Paragraph 29)  (Paragraph   (Paragraph  (  (Paragraph  (Paragraph  ( ", "answers": ["Paragraph 28"], "all_classes": null, "length": 10118}
+{"pred": "5.  (Paragraph 5)  (Paragraph 5)  (Paragraph 5)  (Paragraph 5)  (Paragraph 5)", "answers": ["Paragraph 5"], "all_classes": null, "length": 8975}
+{"pred": "30. 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0", "answers": ["Paragraph 30"], "all_classes": null, "length": 9934}
+{"pred": "6. ASSISTANT: 1. The text: 2. 3. 3. 4. 5. 6. 6", "answers": ["Paragraph 6"], "all_classes": null, "length": 7736}
+{"pred": " Paragraph 2.  The abstract is from paragraph 2.  The text describes the timeline of a person's career in professional football. In 2004", "answers": ["Paragraph 12"], "all_classes": null, "length": 8771}
+{"pred": " Paragraph 26.  (The abstract is from Paragraph 26.)</s>", "answers": ["Paragraph 26"], "all_classes": null, "length": 10004}
+{"pred": " Paragraph 1. 1. 1. 2. 3. 4. 5. 5. 6. 7. ", "answers": ["Paragraph 30"], "all_classes": null, "length": 9000}
+{"pred": "6. 6. 6. 6. 6. 6. 6. 6. 6. 6. 6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 10255}
+{"pred": "13.", "answers": ["Paragraph 12"], "all_classes": null, "length": 8776}
+{"pred": "23.  (Paragraph 23)  (Paragraph 23)  (Paragraph 23)  (Paragraph 23)  (Paragraph   (", "answers": ["Paragraph 23"], "all_classes": null, "length": 10742}
+{"pred": "7.", "answers": ["Paragraph 17"], "all_classes": null, "length": 10320}
+{"pred": "1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 8971}
+{"pred": "27.  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)", "answers": ["Paragraph 27"], "all_classes": null, "length": 10277}
+{"pred": "21.  (Paragraph 21)  (21.  (Paragraph 1)  (Paragraph 1)  (Paragraph 1)  (", "answers": ["Paragraph 21"], "all_classes": null, "length": 9525}
+{"pred": " Paragraph 30.  (30)  1. 2.  3.  4.  5.  6. ", "answers": ["Paragraph 27"], "all_classes": null, "length": 8674}
+{"pred": "29.  (Paragraph 29)  (paragraph 29) 29.  (paragraph 29) 29 29  (paragraph 29", "answers": ["Paragraph 29"], "all_classes": null, "length": 8629}
+{"pred": "28.  (Paragraph 28)  (Paragraph 29)  (Paragraph 29)  (Paragraph 29)  (Paragraph 29)", "answers": ["Paragraph 28"], "all_classes": null, "length": 9970}
+{"pred": "7. 7. 7. 7. 7. 7. 7. 7. 7. 7. 7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 8791}
+{"pred": "15.  (Paragraph 15)  (Paragraph 16)  (Paragraph 17)  (Paragraph 18)  (Paragraph 19)", "answers": ["Paragraph 15"], "all_classes": null, "length": 9949}
+{"pred": "23.  (Paragraph 23)  (Paragraph 1)  (Paragraph 1)  (Paragraph 1)  (Paragraph 1)", "answers": ["Paragraph 22"], "all_classes": null, "length": 9832}
+{"pred": " Paragraph 16.", "answers": ["Paragraph 16"], "all_classes": null, "length": 8952}
+{"pred": " Paragraph 14.", "answers": ["Paragraph 14"], "all_classes": null, "length": 8253}
+{"pred": "29.", "answers": ["Paragraph 29"], "all_classes": null, "length": 10431}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 19"], "all_classes": null, "length": 10196}
+{"pred": "29.", "answers": ["Paragraph 28"], "all_classes": null, "length": 10633}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9824}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9324}
+{"pred": "10.  (Paragraph 10)  (Paragraph 1)  (Paragraph 1)  (Paragraph 1)  (Paragraph 1)", "answers": ["Paragraph 10"], "all_classes": null, "length": 10299}
+{"pred": "8. 8. 8. 8 8. 8 8. 8 8. 8 8. 8 8", "answers": ["Paragraph 8"], "all_classes": null, "length": 9489}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 8281}
+{"pred": "27.  # 27: 27.  The 27th game of the 27th season of the 27th game of the 27", "answers": ["Paragraph 27"], "all_classes": null, "length": 8804}
+{"pred": " Paragraph 16.  16.  The Flights of the 2010s:  A 2010  2010  2010", "answers": ["Paragraph 15"], "all_classes": null, "length": 8473}
+{"pred": "21.", "answers": ["Paragraph 21"], "all_classes": null, "length": 9216}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 10941}
+{"pred": "5. 5. 5. 5. 5. 5. 5. 5. 5. 5. 5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 10198}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 8526}
+{"pred": "20.  (Paragraph 20)  (Paragraph 21)  (Paragraph 22)  (Paragraph 23)  (Paragraph 24)", "answers": ["Paragraph 20"], "all_classes": null, "length": 8039}
+{"pred": "15.  (Paragraph 15)  (Paragraph 15: 15)  (Paragraph 15)  (Paragraph 15)  (Paragraph", "answers": ["Paragraph 15"], "all_classes": null, "length": 9207}
+{"pred": "6. 6. 6. 6. 6. 6. 6. 6. 6. 6. 6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 9357}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 9713}
+{"pred": "26. 1. 2 3 3 4 4 5 5 6 6 7 7 8 8 ", "answers": ["Paragraph 26"], "all_classes": null, "length": 8114}
+{"pred": "18. 18. 18. 18. 18. 18. 18. 18. 18 18. 18. ", "answers": ["Paragraph 18"], "all_classes": null, "length": 9148}
+{"pred": "11. 11. 11. 11. 11. 11. 11. 11. 11. 11. 11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 8795}
+{"pred": "18. 1. How does the author of the author of the book Tragedy and what is the author of the book Tragedy and what is", "answers": ["Paragraph 18"], "all_classes": null, "length": 8491}
+{"pred": "7. 7. 7. 7. 7. 7. 7. 7. 7. 7. 7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 8642}
+{"pred": "24. 24. 24. 24. 24. 24. 24. 24. 24. 24. 24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 11270}
+{"pred": "23.  (Paragraph 23)\n\n[0\n\nUSER: 0 0 0 0 0 0 0 0 0 ", "answers": ["Paragraph 23"], "all_classes": null, "length": 9267}
+{"pred": "27.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8747}
+{"pred": "18.", "answers": ["Paragraph 18"], "all_classes": null, "length": 10176}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 8712}
+{"pred": "3.  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)", "answers": ["Paragraph 3"], "all_classes": null, "length": 8315}
+{"pred": "5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 9403}
+{"pred": " Paragraph 1.  The abstract is from paragraph 1.  The abstract is from paragraph 1.  The abstract is from paragraph 1. ", "answers": ["Paragraph 27"], "all_classes": null, "length": 10242}
+{"pred": "24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 8143}
+{"pred": " Paragraph 1. 1. 1. 2. 2. 3. 4. 4. 5. 6. ", "answers": ["Paragraph 29"], "all_classes": null, "length": 9508}
+{"pred": "23. 23. 23. 23. 23. 23. 23. 23. 23. 23. 23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 7817}
+{"pred": "17.  (Paragraph 17)  (17. 17)  (17. 17) 17. 17. 17. ", "answers": ["Paragraph 17"], "all_classes": null, "length": 7533}
+{"pred": "16.", "answers": ["Paragraph 16"], "all_classes": null, "length": 9056}
+{"pred": "18. 18. 18. 18. 18. 18. 18. 18. 18. 18. 18.", "answers": ["Paragraph 18"], "all_classes": null, "length": 9565}
+{"pred": "13.", "answers": ["Paragraph 13"], "all_classes": null, "length": 10347}
+{"pred": "20.  (Paragraph 20)  (Paragraph 20)  (Paragraph  20)  (Paragraph 20)  (Paragraph 20", "answers": ["Paragraph 20"], "all_classes": null, "length": 9260}
+{"pred": " Paragraph 1.  (Paragraph 1) 1. 2. 1. 1. 1. 1. 1. ", "answers": ["Paragraph 18"], "all_classes": null, "length": 11516}
+{"pred": "23\n\n[0_system],[0.0],0.0,[0.0],0.0,[0.0],0.0.0.", "answers": ["Paragraph 23"], "all_classes": null, "length": 9334}
+{"pred": " Paragraph 1.", "answers": ["Paragraph 19"], "all_classes": null, "length": 10614}
+{"pred": "1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1.", "answers": ["Paragraph 19"], "all_classes": null, "length": 9251}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9922}
+{"pred": "13.", "answers": ["Paragraph 13"], "all_classes": null, "length": 9459}
+{"pred": "9.  (Paragraph 9)  (Paragraph 9)  (Paragraph 9)  (Paragraph 9)  (Paragraph 9)", "answers": ["Paragraph 9"], "all_classes": null, "length": 9025}
+{"pred": "22.  (Paragraph 22)  (Paragraph 22)  (Paragraph 22)  (Paragraph 22)  (Paragraph 22)", "answers": ["Paragraph 22"], "all_classes": null, "length": 9717}
+{"pred": "11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 9446}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 10308}
+{"pred": "12.  # 12: 12.  The second match between the two teams was the first of the two teams, and the two teams were the", "answers": ["Paragraph 12"], "all_classes": null, "length": 8558}
+{"pred": "10. 10. 10. 10. 10. 10. 10. 10. 10. 10. 10.", "answers": ["Paragraph 10"], "all_classes": null, "length": 9485}
+{"pred": "3.", "answers": ["Paragraph 3"], "all_classes": null, "length": 8673}
+{"pred": " Paragraph 1.  The abstract is from the first paragraph. 1.  The abstract is from paragraph 1. 1.  The abstract is", "answers": ["Paragraph 10"], "all_classes": null, "length": 9147}
+{"pred": "2. 2. 2 2 1 1 1 1 1 1 1 1 1 1 1 ", "answers": ["Paragraph 2"], "all_classes": null, "length": 10298}
+{"pred": "27.  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)  (Paragraph 27)", "answers": ["Paragraph 27"], "all_classes": null, "length": 8716}
+{"pred": "3.  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)  (Paragraph 3)", "answers": ["Paragraph 7"], "all_classes": null, "length": 9171}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 9357}
+{"pred": "23.  (Paragraph 23)  (Paragraph 24)  (Paragraph 25)  (Paragraph 26)  (Paragraph   (", "answers": ["Paragraph 25"], "all_classes": null, "length": 10597}
+{"pred": "30. 1. 2 3. 3 4 4 5 5 6 6 7 7 8 8", "answers": ["Paragraph 30"], "all_classes": null, "length": 8070}
+{"pred": "9. 9. 9. 9. 9. 9. 9. 9. 9. 9. 9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 9095}
+{"pred": " Paragraph 1.  (Abstract: \"The CMLL crew set up a steel cage for the main event, with 12 wrestlers, 6 each", "answers": ["Paragraph 14"], "all_classes": null, "length": 8867}
+{"pred": "8. 8. 8. 8. 8. 8. 8. 8. 8. 8. 8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9895}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 9072}
+{"pred": "19.  (Paragraph 19)  (19.  (Paragraph 19) 19.  (19. 19. 19. ", "answers": ["Paragraph 19"], "all_classes": null, "length": 10852}
+{"pred": "22.  (Paragraph 22nd)  paragraph)  (Paragraph 22nd  (Paragraph 22nd)  (Paragraph 22nd)", "answers": ["Paragraph 22"], "all_classes": null, "length": 9767}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9547}
+{"pred": "7.  (Paragraph 7)  (Paragraph 7)  (Paragraph 7)  (Paragraph 7)  (Paragraph 7)", "answers": ["Paragraph 7"], "all_classes": null, "length": 8081}
+{"pred": "7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 7860}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 9423}
+{"pred": "11. 11. 11. 11. 11. 11. 11. 11. 11. 11. 11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 7818}
+{"pred": "18.  (Paragraph 18)  (Paragraph 18)  (Paragraph 18)  (Paragraph 18)  (Paragraph 18)", "answers": ["Paragraph 18"], "all_classes": null, "length": 10417}
+{"pred": "9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 8644}
+{"pred": " Paragraph 17.", "answers": ["Paragraph 16"], "all_classes": null, "length": 8429}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8931}
+{"pred": " Paragraph 1. 1. 1. 2. 2. 3. 4. 4. 5. 6. ", "answers": ["Paragraph 27"], "all_classes": null, "length": 9098}
+{"pred": "7. 7. 7. 7. 7. 7. 7. 7. 7. 7. 7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 8751}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9296}
+{"pred": "24. 24. 24. 24. 24. 24. 24. 24. 24. 24. 24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9412}
+{"pred": "20.  (Paragraph 20)  (Paragraph 20)  (Paragraph  20)  (Paragraph 20)  (Paragraph 20", "answers": ["Paragraph 20"], "all_classes": null, "length": 9968}
+{"pred": "30.  (Paragraph 30)  (Paragraph 29)  (Paragraph   (Paragraph  (Paragraph   (Paragraph   (Paragraph", "answers": ["Paragraph 29"], "all_classes": null, "length": 9105}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 8924}
+{"pred": "6. 6. 6. 6. 6. 6. 6. 6. 6. 6. 6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 9991}
+{"pred": "1. 1. 1. 1. 1. 1. 1. 1. 1. 1. 1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 10601}
+{"pred": "4.  (Paragraph 4)  (4.  4.  (4.  (4.  (4.  (4.", "answers": ["Paragraph 4"], "all_classes": null, "length": 8559}
+{"pred": "30.  (Paragraph 30)  (Paragraph 29)  (Paragraph  29)  (Paragraph 29)  (Paragraph 29", "answers": ["Paragraph 29"], "all_classes": null, "length": 10041}
+{"pred": "11.  (Paragraph 11)  (Paragraph 11)  (Paragraph 11)  (Paragraph 11)  (Paragraph 11)", "answers": ["Paragraph 11"], "all_classes": null, "length": 8851}
+{"pred": "7. 7. 7. 7. 7. 7. 7. 7. 7. 7. 7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 10303}
+{"pred": " Paragraph 22.  Lloyd-Jones was born in Cardiff, Wales in 1899 and grew up in Llangeitho. His father was a", "answers": ["Paragraph 22"], "all_classes": null, "length": 9065}
+{"pred": "8.  (Paragraph 8)  (8. 8. 8. 8. 8. 8. 8. 8", "answers": ["Paragraph 8"], "all_classes": null, "length": 8976}
+{"pred": "28.  (Paragraph 28)  (Paragraph 28)  (Paragraph 28)  (Paragraph 28)  (Paragraph 28)", "answers": ["Paragraph 28"], "all_classes": null, "length": 8863}
+{"pred": "23.", "answers": ["Paragraph 23"], "all_classes": null, "length": 9616}
+{"pred": " Paragraph 1. 1. 1. 2. 2. 3. 4. 4. 5. 6. ", "answers": ["Paragraph 8"], "all_classes": null, "length": 9063}
+{"pred": "11.", "answers": ["Paragraph 11"], "all_classes": null, "length": 8464}
+{"pred": "28.", "answers": ["Paragraph 28"], "all_classes": null, "length": 9939}
+{"pred": "16.", "answers": ["Paragraph 16"], "all_classes": null, "length": 7539}
+{"pred": "2. 2. 2. 2. 2. 2. 2. 2. 2. 2. 2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 9321}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9976}
+{"pred": "2.  (Paragraph 2)  (Paragraph 2)  (Paragraph 2)  (Paragraph 2)  (Paragraph 2)", "answers": ["Paragraph 2"], "all_classes": null, "length": 7814}
+{"pred": "28.  (Paragraph 28)  (Paragraph 28)  (Paragraph 28)  (Paragraph 28)  (Paragraph 28)", "answers": ["Paragraph 28"], "all_classes": null, "length": 10274}
+{"pred": "7. 7. 7. 7. 7. 7. 7. 7. 7. 7. 7.", "answers": ["Paragraph 7"], "all_classes": null, "length": 9091}
+{"pred": "1\n\n[0_system],[0],0,[0,0],0,[0_system],[0_system0],0,[0,[0_system0],0", "answers": ["Paragraph 27"], "all_classes": null, "length": 10887}
+{"pred": "16. 16. 16. 16. 16. 16. 16. 16. 16. 16. 16.", "answers": ["Paragraph 16"], "all_classes": null, "length": 9628}
+{"pred": "1. 1. 2. 3. 4. 4. 5. 6. 7. 7. 8.", "answers": ["Paragraph 1"], "all_classes": null, "length": 8060}
+{"pred": "26.", "answers": ["Paragraph 26"], "all_classes": null, "length": 9395}
+{"pred": "6. 6. 6. 6. 6. 6. 6. 6. 6. 6. 6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 8232}
+{"pred": " Paragraph 5.  The abstract is from paragraph 5.  The abstract is from paragraph 5.  The abstract is from paragraph 5. ", "answers": ["Paragraph 15"], "all_classes": null, "length": 9132}
+{"pred": "14.", "answers": ["Paragraph 14"], "all_classes": null, "length": 8557}
+{"pred": " Paragraph 26.  (The text describes the Turian-Chay State Reserve, which is a natural reserve in the Republic of Azerbaijan. It is noted that", "answers": ["Paragraph 25"], "all_classes": null, "length": 9374}
+{"pred": "6. 6. 6. 6. 6. 6. 6. 6. 6. 6. 6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 9024}
+{"pred": "2. 2. 2. 2. 2. 2. 2. 2. 2. 2. 2.", "answers": ["Paragraph 2"], "all_classes": null, "length": 8492}
+{"pred": "5. 5. 5. 5. 5. 5. 5. 5. 5. 5. 5.", "answers": ["Paragraph 5"], "all_classes": null, "length": 8944}
+{"pred": "12. 12. Lief, Barda, Barda, and Jasmine had retrieved the gem from the column, and the Maze of the Beast, and", "answers": ["Paragraph 12"], "all_classes": null, "length": 8243}
+{"pred": " Paragraph 2.  2. 2. 2. 2. 2. 2. 2. 2. 2.", "answers": ["Paragraph 12"], "all_classes": null, "length": 8452}
+{"pred": "8. 8. 8. 8. 8. 8. 8. 8. 8. 8. 8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 8418}
+{"pred": "20.", "answers": ["Paragraph 20"], "all_classes": null, "length": 9471}
+{"pred": "25.", "answers": ["Paragraph 25"], "all_classes": null, "length": 8888}
+{"pred": "23.  (Paragraph 23.  In 1996, Yam began his role as Chiang Tin-Sung, the leader of the Hung H.", "answers": ["Paragraph 23"], "all_classes": null, "length": 8088}
+{"pred": "30.  (30)  (30)  (30)  (30)  (30)  (30)  (30)  (", "answers": ["Paragraph 30"], "all_classes": null, "length": 10318}
+{"pred": " Paragraph 1.  (1)  (2)  (3)  (4)  (5)  (6)  (7)", "answers": ["Paragraph 7"], "all_classes": null, "length": 10754}
+{"pred": "10. 10. The abstract is from paragraph 10. 10. 10. 10. 10. 10. 10. ", "answers": ["Paragraph 10"], "all_classes": null, "length": 8055}
+{"pred": "30.", "answers": ["Paragraph 30"], "all_classes": null, "length": 9471}
+{"pred": "9. 9. 9. 9. 9. 9. 9. 9. 9. 9. 9.", "answers": ["Paragraph 9"], "all_classes": null, "length": 9415}
+{"pred": "17.  (Paragraph 17)  (Paragraph 17)  (Paragraph 17)  (Paragraph 17)  (Paragraph 17)", "answers": ["Paragraph 17"], "all_classes": null, "length": 10382}
+{"pred": "30.  (30)\n\nThe abstract is from paragraph 30.  (30)\n\\end{abstract}\n\nThe abstract is a 2002 film about", "answers": ["Paragraph 30"], "all_classes": null, "length": 10098}
+{"pred": "30.  (Paragraph 2019)  1. 1. 1. 1. 1. 1. 1. ", "answers": ["Paragraph 10"], "all_classes": null, "length": 10972}
+{"pred": "1\n\nThe abstract is from Paragraph 1. The Thistles, a hockey team in the Manitoba intermediate league, had a successful seasons in 1899-", "answers": ["Paragraph 26"], "all_classes": null, "length": 8937}
+{"pred": "1. 1. 2. 3. 4. 4. 5. 6. 7. 7. 8.", "answers": ["Paragraph 27"], "all_classes": null, "length": 8275}
+{"pred": "26.  (Paragraph 26)\n\n[0\nThe story of the abstract is from is about a girl who is waiting for a van and then sits in", "answers": ["Paragraph 26"], "all_classes": null, "length": 9032}
+{"pred": "8.", "answers": ["Paragraph 8"], "all_classes": null, "length": 7990}
+{"pred": "30.  (Paragraph 30)</s>", "answers": ["Paragraph 30"], "all_classes": null, "length": 9969}
+{"pred": "13. 13. 13. 13. 13. 13. 13. 13. 13. 13. 13.", "answers": ["Paragraph 13"], "all_classes": null, "length": 9356}
+{"pred": "12.", "answers": ["Paragraph 12"], "all_classes": null, "length": 9827}
+{"pred": "24. 24. 24. 24. Based on the passage, what is the name of the character who is a hard and who is a feminist", "answers": ["Paragraph 24"], "all_classes": null, "length": 8886}
+{"pred": "6. 6. 6. 6. 6. 6. 6. 6. 6. 6. 6.", "answers": ["Paragraph 6"], "all_classes": null, "length": 7953}
+{"pred": "24. 24. 24. 24. 24. 24. 24. 24. 24. 24. 24.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9019}
+{"pred": "25.", "answers": ["Paragraph 25"], "all_classes": null, "length": 9668}
+{"pred": "25.", "answers": ["Paragraph 24"], "all_classes": null, "length": 9446}
+{"pred": "1.", "answers": ["Paragraph 1"], "all_classes": null, "length": 9333}
+{"pred": " Paragraph 1. 1. 2. 2. 3. 4. 5. 5. 6. 7. ", "answers": ["Paragraph 25"], "all_classes": null, "length": 9006}
+{"pred": "2. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.", "answers": ["Paragraph 2"], "all_classes": null, "length": 10134}
+{"pred": "27\n\nHere is the abstract: 27. The formation of a company is a legal entity, and the formation of a company, and the formation of a", "answers": ["Paragraph 27"], "all_classes": null, "length": 8214}
+{"pred": "4. 4. 4. 4. 4. 4. 4. 4. 4. 4. 4.", "answers": ["Paragraph 4"], "all_classes": null, "length": 10149}

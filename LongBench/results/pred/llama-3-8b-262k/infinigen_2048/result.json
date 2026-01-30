@@ -1,4 +1,8 @@
 {
     "hotpotqa": 20.87,
-    "narrativeqa": 7.96
+    "narrativeqa": 8.49,
+    "multifieldqa_en": 39.17,
+    "musique": 10.45,
+    "dureader": 24.37,
+    "gov_report": 26.64
 }

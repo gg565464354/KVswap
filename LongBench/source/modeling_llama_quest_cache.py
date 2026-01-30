@@ -20,6 +20,7 @@
 # limitations under the License.
 from typing import Callable, Optional, Union
 
+import math
 import os
 import torch
 from torch import nn
@@ -283,7 +284,10 @@ class LlamaAttention(nn.Module):
                 "k_max": None,        # [B,H_kv,Pages,D] fp32
                 "pool": None,         # [B,H_kv,N] long (pad=-1)
                 "pool_valid": None,   # [B,H_kv,N] bool
+                "pool_ts": None,      # [B,H_kv,N] long, last-used step (pad=-1)
+                "pool_cap": None,
                 "step": 0,
+                "shape": None,        # (B,H_kv)
             }
             past_key_values._quest_state[self.layer_idx] = st
         return st
@@ -405,6 +409,36 @@ class LlamaAttention(nn.Module):
 
         return padded, valid_out
 
+    @staticmethod
+    def _pack_by_mask(x: torch.Tensor, mask: torch.Tensor, pad_value: int = -1):
+        """
+        Pack values where mask=True into a compact last-dim list (order preserved), pad with pad_value.
+        x, mask: [B,H,N]
+        returns: [B,H,M] where M = max(mask.sum(-1))
+        """
+        B, H, N = x.shape
+        device = x.device
+        if N == 0:
+            return torch.full((B, H, 0), pad_value, device=device, dtype=x.dtype)
+
+        pos_raw = torch.cumsum(mask.to(torch.int32), dim=-1) - 1
+        pos = torch.where(mask, pos_raw, torch.full_like(pos_raw, -1))
+        cnt = mask.sum(dim=-1)
+        M = int(cnt.max().item()) if cnt.numel() > 0 else 0
+
+        out = torch.full((B, H, M), pad_value, device=device, dtype=x.dtype)
+        if M == 0:
+            return out
+
+        bh = torch.arange(B * H, device=device).unsqueeze(1).expand(B * H, N).reshape(-1)
+        pos_f = pos.reshape(-1)
+        val_f = x.reshape(-1)
+        m = pos_f >= 0
+
+        out_f = out.view(B * H, M)
+        out_f[bh[m], pos_f[m]] = val_f[m]
+        return out
+
     def _pad_last_dim(self, x: torch.Tensor, target: int, pad_value):
         n = x.shape[-1]
         if n == target:
@@ -429,21 +463,71 @@ class LlamaAttention(nn.Module):
         base_cnt = base_valid.sum(dim=-1)  # [B,H_kv]
         critical_cnt = base_cnt + self.local_window_size + 1
 
+        cur_shape = (base.shape[0], base.shape[1])
+        if st.get("shape") is None or st.get("shape") != cur_shape:
+            st["pool"], st["pool_valid"], st["pool_ts"], st["step"], st["pool_cap"] = None, None, None, 0, None
+            st["shape"] = cur_shape
+
         # fixed_k strategy
         if self.cache_pool_strategy == "fixed_k":
             step = int(st.get("step", 0))
-            do_reset = (self.cache_pool_k > 0) and ((step + 1) % self.cache_pool_k == 0)
+            topk = int(base.shape[-1])
+            cap = max(1, int(math.ceil(1.5 * float(topk))))
+            do_update = (self.cache_pool_k <= 0) or ((step + 1) % self.cache_pool_k == 0)
 
-            if do_reset or st["pool"] is None:
-                pool_u, pool_valid = base_u, base_valid
+            if st["pool"] is None or st.get("pool_cap") != cap:
+                pool = torch.full((base.shape[0], base.shape[1], cap), -1, device=base.device, dtype=torch.long)
+                pool_valid = torch.zeros((base.shape[0], base.shape[1], cap), device=base.device, dtype=torch.bool)
+                pool_ts = torch.full((base.shape[0], base.shape[1], cap), -1, device=base.device, dtype=torch.long)
+                do_update = True
             else:
-                merged = torch.cat([st["pool"], base], dim=-1)
-                merged = self._clamp_keep_neg1(merged, 0, total_seq_len - 1)
-                pool_u, pool_valid = self._unique_pad_bh(merged, pad_value=-1)
+                pool = st["pool"]
+                pool_valid = st["pool_valid"]
+                pool_ts = st.get("pool_ts")
+                if pool_valid is None:
+                    pool_valid = pool >= 0
+                if pool_ts is None:
+                    pool_ts = torch.full_like(pool, -1, dtype=torch.long)
+
+            if do_update:
+                cur_step = step + 1
+                base_mask = base_valid.unsqueeze(-1)
+                pool_mask = pool_valid.unsqueeze(-2)
+                eq = (base_u.unsqueeze(-1) == pool.unsqueeze(-2)) & base_mask & pool_mask
+                pool_hit = eq.any(dim=-2)
+                pool_ts = torch.where(pool_hit, torch.full_like(pool_ts, cur_step), pool_ts)
+
+                base_in_pool = eq.any(dim=-1)
+                new_mask = base_valid & (~base_in_pool)
+                max_new = int(new_mask.sum(dim=-1).max().item()) if new_mask.numel() > 0 else 0
+                if max_new > 0:
+                    new_packed = self._pack_by_mask(base_u, new_mask, pad_value=-1)
+
+                    ts_eff = torch.where(pool_valid, pool_ts, torch.full_like(pool_ts, -1))
+                    evict_order = torch.argsort(ts_eff, dim=-1, descending=False)
+                    evict_pos = evict_order[..., :max_new]
+
+                    bh = torch.arange(pool.shape[0] * pool.shape[1], device=pool.device).unsqueeze(1)
+                    bh = bh.expand(-1, max_new).reshape(-1)
+                    pos_f = evict_pos.reshape(-1)
+                    val_f = new_packed.reshape(-1)
+                    m = val_f >= 0
+
+                    pool_f = pool.view(-1, cap)
+                    pool_valid_f = pool_valid.view(-1, cap)
+                    pool_ts_f = pool_ts.view(-1, cap)
+                    pool_f[bh[m], pos_f[m]] = val_f[m]
+                    pool_valid_f[bh[m], pos_f[m]] = True
+                    pool_ts_f[bh[m], pos_f[m]] = cur_step
+
+                    pool = pool_f.view_as(pool)
+                    pool_valid = pool_valid_f.view_as(pool_valid)
+                    pool_ts = pool_ts_f.view_as(pool_ts)
 
             st["step"] = step + 1
-            st["pool"], st["pool_valid"] = pool_u, pool_valid
-            return pool_u, pool_valid
+            st["pool_cap"] = cap
+            st["pool"], st["pool_valid"], st["pool_ts"] = pool, pool_valid, pool_ts
+            return pool, pool_valid
 
         # threshold strategy
         if st["pool"] is None:
