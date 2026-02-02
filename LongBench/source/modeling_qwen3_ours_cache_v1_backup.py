@@ -590,7 +590,7 @@ class Qwen3Attention(nn.Module):
         **kwargs: Unpack[FlashAttentionKwargs],
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         if hidden_states.shape[-2] == 1:
-            self.current_hidden_states = hidden_states.detach()
+            self.current_hidden_states = hidden_states.detach().clone()
         else:
             self.current_hidden_states = None
 

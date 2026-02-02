@@ -245,7 +245,6 @@ def get_pred(llm, data, max_new_tokens, prompt_format, model_name, out_path, arg
     for json_obj in tqdm(data_):
         # 清理状态
         reset_kv_state(llm)
-        torch.cuda.empty_cache()
 
         prompt = prompt_format.format(**json_obj)
         inputs = llm.tokenizer([prompt], return_tensors="pt", padding=True)
@@ -261,7 +260,7 @@ def get_pred(llm, data, max_new_tokens, prompt_format, model_name, out_path, arg
             "pad_token_id": llm.tokenizer.pad_token_id,
             "use_cache": True,
         }
-        if args.method in ["kvswap", "quest"]:
+        if args.method == "kvswap":
             gen_kwargs.update({
                 "kvswap_enable_prefetch": bool(args.kvswap_enable_prefetch),
                 "kvswap_cache_pool_enabled": bool(args.kvswap_cache_pool_enabled),
